@@ -68,10 +68,22 @@ python -m buddy.devsheet   # colored contact sheet of every critter x state x fr
 
 ### Validation gate
 
+All checks are **local** — there is no CI. The standing gate is one command:
+
 ```bash
-.venv/bin/python -m pytest       # unit + snapshot tests (regen: --snapshot-update)
-.venv/bin/ruff check src tests   # lint
+make check          # lint + format-check + tests (the gate)
 ```
+
+Or run the pieces directly:
+
+```bash
+.venv/bin/python -m pytest        # unit + snapshot tests (regen: --snapshot-update)
+.venv/bin/ruff check src tests    # lint
+.venv/bin/ruff format --check src tests   # formatting
+```
+
+A `.pre-commit-config.yaml` runs the fast checks (ruff lint + format + basic
+hygiene) on commit; the full test suite is run on demand via `make check`.
 
 ### Dev note (macOS + Python 3.14 venv quirk)
 

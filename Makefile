@@ -8,7 +8,7 @@ RUN  := PYTHONPATH=src $(PY)
 SITE := $(shell $(PY) -c "import site; print(site.getsitepackages()[0])" 2>/dev/null)
 
 .DEFAULT_GOAL := help
-.PHONY: help run list sheet test lint fix check snapshots install link fix-venv
+.PHONY: help run list sheet test lint fmt fix check snapshots install link fix-venv
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -29,10 +29,14 @@ test: ## Run the full test gate (unit + snapshots)
 lint: ## Lint with ruff
 	$(RUFF) check src tests
 
-fix: ## Auto-fix lint issues
-	$(RUFF) check --fix src tests
+fmt: ## Check formatting (no writes)
+	$(RUFF) format --check src tests
 
-check: lint test ## Lint then test (the standing gate)
+fix: ## Auto-fix lint + formatting
+	$(RUFF) check --fix src tests
+	$(RUFF) format src tests
+
+check: lint fmt test ## The standing local gate: lint + format-check + tests
 
 snapshots: ## Regenerate SVG snapshot baselines
 	$(PY) -m pytest tests/test_app_snapshot.py --snapshot-update

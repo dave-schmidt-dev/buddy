@@ -4,6 +4,28 @@ Meaningful changes, bugs, remediation, and regression notes for the `buddy` proj
 
 ---
 
+## 2026-07-03 — Drop CI; testing and linting are local
+
+Removed the GitHub Actions workflow (`.github/workflows/ci.yml`) added during the
+initial ship. The gate is now purely local: `make check` runs ruff lint +
+`ruff format --check` + the full pytest suite (unit + snapshots). Formatting was
+promoted into the gate (new `make fmt`) so nothing the workflow used to catch is
+lost. The `.pre-commit-config.yaml` still runs the fast checks (ruff lint/format +
+hygiene) on commit; its stale "runs in CI" note was corrected. ruff stays pinned at
+0.15.20 across the venv, the pyproject dev dep, and the pre-commit hook, so the local
+checks are version-consistent.
+
+- Rationale: this is a solo, small project; a hosted CI run per push was unrequested
+  overhead. The Node-20→24 action-deprecation warning that CI emitted is moot now
+  that the workflow is gone.
+
+- [change] remove CI workflow; make `make check` the authoritative local gate (lint +
+  format + tests) | files: .github/workflows/ci.yml (deleted), Makefile,
+  .pre-commit-config.yaml, README.md
+- Gate: `make check` green — ruff clean, 24 files formatted, 156 tests pass.
+
+---
+
 ## 2026-07-03 — Species dialogue: each critter says its own thing
 
 Added per-critter speech: `dialogue.SPECIES` maps each critter name to a pool of
