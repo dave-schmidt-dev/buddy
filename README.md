@@ -82,8 +82,8 @@ Or run the pieces directly:
 .venv/bin/ruff format --check src tests   # formatting
 ```
 
-A `.pre-commit-config.yaml` runs the fast checks (ruff lint + format + basic
-hygiene) on commit; the full test suite is run on demand via `make check`.
+Run `make check` before you commit. No git hooks, no CI — the gate is a command
+you run.
 
 ### Dev note (macOS + Python 3.14 venv quirk)
 

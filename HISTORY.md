@@ -4,24 +4,23 @@ Meaningful changes, bugs, remediation, and regression notes for the `buddy` proj
 
 ---
 
-## 2026-07-03 — Drop CI; testing and linting are local
+## 2026-07-03 — Drop CI and the pre-commit hook; the gate is a local command
 
-Removed the GitHub Actions workflow (`.github/workflows/ci.yml`) added during the
-initial ship. The gate is now purely local: `make check` runs ruff lint +
-`ruff format --check` + the full pytest suite (unit + snapshots). Formatting was
-promoted into the gate (new `make fmt`) so nothing the workflow used to catch is
-lost. The `.pre-commit-config.yaml` still runs the fast checks (ruff lint/format +
-hygiene) on commit; its stale "runs in CI" note was corrected. ruff stays pinned at
-0.15.20 across the venv, the pyproject dev dep, and the pre-commit hook, so the local
-checks are version-consistent.
+Removed both bits of unrequested automation added during the initial ship: the
+GitHub Actions workflow (`.github/workflows/ci.yml`) and the `.pre-commit-config.yaml`
+git hook. The gate is now a single command a developer runs by hand: `make check`
+runs ruff lint + `ruff format --check` + the full pytest suite (unit + snapshots).
+Formatting was promoted into the gate (new `make fmt`) so nothing the workflow used
+to catch is lost. ruff stays pinned at 0.15.20 in the venv and the pyproject dev dep,
+so lint/format are version-consistent.
 
-- Rationale: this is a solo, small project; a hosted CI run per push was unrequested
-  overhead. The Node-20→24 action-deprecation warning that CI emitted is moot now
-  that the workflow is gone.
+- Rationale: this is a solo, small project. A hosted CI run per push and an auto-on-
+  commit hook were both overhead I didn't ask for. The Node-20→24 action-deprecation
+  warning that CI emitted is moot now that the workflow is gone.
 
-- [change] remove CI workflow; make `make check` the authoritative local gate (lint +
-  format + tests) | files: .github/workflows/ci.yml (deleted), Makefile,
-  .pre-commit-config.yaml, README.md
+- [change] remove CI workflow and pre-commit config; make `make check` the sole,
+  hand-run local gate (lint + format + tests) | files: .github/workflows/ci.yml
+  (deleted), .pre-commit-config.yaml (deleted), Makefile, README.md
 - Gate: `make check` green — ruff clean, 24 files formatted, 156 tests pass.
 
 ---
