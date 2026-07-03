@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Node / JS
+node_modules/
+*.tsbuildinfo
+
+# Secrets / local state (never commit)
+etc/bws-config.txt
+etc/*.local.yaml
+*.local
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Build / logs
+dist/
+build/
+*.log
+
+# Test artifacts
+snapshot_report.html
+tests/__snapshots__/*.svg.new

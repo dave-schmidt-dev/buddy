@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "buddy"
+version = "0.1.0"
+description = "An ambient ASCII-art coding companion that struts around a side terminal pane."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "David Schmidt" }]
+dependencies = ["textual>=8.2.8,<8.3"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-textual-snapshot", "ruff==0.15.20"]
+
+[project.scripts]
+buddy = "buddy.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Import the package from src/ directly so the test loop always sees live source,
+# even if the editable install breaks (macOS sets UF_HIDDEN on the dot-prefixed
+# .venv, which Python 3.14 site.py uses to skip the editable .pth — cleared with
+# `chflags nohidden .venv`). See HISTORY.md 2026-07-03.
+pythonpath = ["src"]

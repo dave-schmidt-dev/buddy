@@ -1,0 +1,8 @@
+# buddy ledger — minimal machine state. NO `freeze` field (computed on read).
+invariants:
+  INV-1: {gate_test_status: covered}    # covered | missing  (tests/test_critters.py)
+  INV-2: {gate_test_status: covered}    # tests/test_stage.py
+  INV-3: {gate_test_status: covered}    # tests/test_creature.py
+  INV-4: {gate_test_status: covered}    # tests/test_core_is_framework_free.py
+  INV-5: {gate_test_status: covered}    # tests/test_default_is_passive.py
+resolutions: {}                          # INV-x: {resolved_at_date: "YYYY-MM-DD", note: "..."}
