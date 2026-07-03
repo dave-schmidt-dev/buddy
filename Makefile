@@ -8,7 +8,7 @@ RUN  := PYTHONPATH=src $(PY)
 SITE := $(shell $(PY) -c "import site; print(site.getsitepackages()[0])" 2>/dev/null)
 
 .DEFAULT_GOAL := help
-.PHONY: help run list sheet test lint fmt fix check snapshots install link fix-venv
+.PHONY: help run list sheet test lint fmt fix check snapshots install link hooks fix-venv
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -41,9 +41,14 @@ check: lint fmt test ## The standing local gate: lint + format-check + tests
 snapshots: ## Regenerate SVG snapshot baselines
 	$(PY) -m pytest tests/test_app_snapshot.py --snapshot-update
 
-install: ## (Re)install the package into the venv (editable + durable symlink)
+install: ## (Re)install the package into the venv (editable + durable symlink + git hooks)
 	$(VENV)/bin/pip install -e ".[dev]"
 	$(MAKE) link
+	$(MAKE) hooks
+
+hooks: ## Activate the git hooks so `make check` runs automatically on every commit
+	git config core.hooksPath hooks
+	@echo "git hooks active (core.hooksPath=hooks) — the gate runs on every commit"
 
 link: ## Symlink src/buddy into site-packages so `buddy` imports even when .venv is hidden
 	@test -n "$(SITE)" || { echo "could not locate site-packages (is the venv built?)"; exit 1; }

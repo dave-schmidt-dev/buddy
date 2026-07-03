@@ -4,24 +4,34 @@ Meaningful changes, bugs, remediation, and regression notes for the `buddy` proj
 
 ---
 
-## 2026-07-03 — Drop CI and the pre-commit hook; the gate is a local command
+## 2026-07-03 — Drop CI; the gate runs automatically via a local git hook
 
-Removed both bits of unrequested automation added during the initial ship: the
-GitHub Actions workflow (`.github/workflows/ci.yml`) and the `.pre-commit-config.yaml`
-git hook. The gate is now a single command a developer runs by hand: `make check`
-runs ruff lint + `ruff format --check` + the full pytest suite (unit + snapshots).
-Formatting was promoted into the gate (new `make fmt`) so nothing the workflow used
-to catch is lost. ruff stays pinned at 0.15.20 in the venv and the pyproject dev dep,
-so lint/format are version-consistent.
+Removed the GitHub Actions workflow (`.github/workflows/ci.yml`) added during the
+initial ship — quality gating is local now, not hosted. But "local" must not mean
+"run it by hand": the gate runs **automatically on every commit** through a tracked
+git hook (`hooks/pre-commit`, activated by `core.hooksPath=hooks`). The hook runs
+`make check` = ruff lint + `ruff format --check` + the full pytest suite (unit +
+snapshots); a commit that fails the gate is rejected. Formatting was folded into the
+gate (new `make fmt`) so nothing the old workflow caught is lost.
 
-- Rationale: this is a solo, small project. A hosted CI run per push and an auto-on-
-  commit hook were both overhead I didn't ask for. The Node-20→24 action-deprecation
-  warning that CI emitted is moot now that the workflow is gone.
+Iteration on the shape (all same day): first the workflow was replaced by a hand-run
+`make check`, and the earlier `.pre-commit-config.yaml` (which needed `pre-commit
+install` + the `pre-commit` package) was dropped. That still required typing the gate
+by hand, which wasn't the goal — so the final form is a dependency-free native git
+hook that self-runs. `make install` / `make hooks` does the one-time `core.hooksPath`
+wiring (git never auto-activates hooks from a clone). ruff stays pinned at 0.15.20 in
+the venv and the pyproject dev dep, so lint/format are version-consistent.
 
-- [change] remove CI workflow and pre-commit config; make `make check` the sole,
-  hand-run local gate (lint + format + tests) | files: .github/workflows/ci.yml
-  (deleted), .pre-commit-config.yaml (deleted), Makefile, README.md
-- Gate: `make check` green — ruff clean, 24 files formatted, 156 tests pass.
+- Rationale: solo, small project — a hosted CI run per push was unrequested overhead,
+  but the checks still need to run without manual effort. A local pre-commit hook is
+  the fit. The Node-20→24 action-deprecation warning CI emitted is moot now.
+
+- [change] remove CI workflow; add self-running `hooks/pre-commit` that runs the full
+  `make check` gate on every commit; wire `make install`/`make hooks` to activate it |
+  files: .github/workflows/ci.yml (deleted), .pre-commit-config.yaml (deleted),
+  hooks/pre-commit (new), Makefile, README.md
+- Gate: `make check` green — ruff clean, 24 files formatted, 156 tests pass. Verified
+  the hook fires by committing through it (see the commit that carried this entry).
 
 ---
 

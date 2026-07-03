@@ -68,22 +68,23 @@ python -m buddy.devsheet   # colored contact sheet of every critter x state x fr
 
 ### Validation gate
 
-All checks are **local** — there is no CI. The standing gate is one command:
+All checks are **local** — there is no CI. The gate (`make check` = ruff lint +
+`ruff format --check` + the full pytest suite) runs **automatically on every commit**
+via a tracked git hook (`hooks/pre-commit`). You don't run anything by hand; a commit
+that fails the gate is rejected.
+
+`make install` activates the hook (it runs `git config core.hooksPath hooks`); on a
+fresh clone, `make hooks` alone does the same one-time wiring. git never
+auto-activates hooks from a clone, so that single step is the only setup.
+
+To run the gate manually anyway (or the pieces):
 
 ```bash
-make check          # lint + format-check + tests (the gate)
-```
-
-Or run the pieces directly:
-
-```bash
+make check                        # the whole gate, on demand
 .venv/bin/python -m pytest        # unit + snapshot tests (regen: --snapshot-update)
 .venv/bin/ruff check src tests    # lint
 .venv/bin/ruff format --check src tests   # formatting
 ```
-
-Run `make check` before you commit. No git hooks, no CI — the gate is a command
-you run.
 
 ### Dev note (macOS + Python 3.14 venv quirk)
 
