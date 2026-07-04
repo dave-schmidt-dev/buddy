@@ -4,6 +4,47 @@ Meaningful changes, bugs, remediation, and regression notes for the `buddy` proj
 
 ---
 
+## 2026-07-04 — Feeds follow-up: richer weather, .env location, feeds on by default
+
+Follow-up on the ambient-feeds feature (below), keeping INV-5 intact.
+
+Richer weather: `fetch_weather` now emits a varied rotation instead of a single
+line — current temp + conditions, wind, humidity, a dewpoint-derived comfort note
+("muggy out" / "a little humid" / "crisp + dry"), the day's high (from the NWS 12h
+`/forecast`), and the existing near-term precip heads-up. The 12h outlook is fetched
+in a nested try/except so its failure drops only that one item, not the batch.
+
+Location via `.env`: a tiny stdlib `_load_dotenv` in `cli.py` reads `BUDDY_ZIP`
+(or `BUDDY_LAT`/`BUDDY_LON`) from a gitignored `.env` as a fallback when no
+`--lat`/`--lon`/`--zip` is passed. `.env.example` documents it; local `.env` seeded
+with `BUDDY_ZIP=20169`. All `.env` reading and geocoding is gated on a weather/nws
+feed being requested, so a passive run never touches the file or the network.
+
+Feeds on by default (without breaking INV-5): the `./buddy` launcher now passes
+`--feeds hn,weather,nws`, so the primary entrypoint uses all tools while the code
+default (`python -m buddy` / `BuddyConfig()`) stays passive with a `NullReactor` —
+the opt-in is an explicit launcher flag, which is exactly what INV-5 permits. The
+INV-5 gate (which constructs `BuddyApp(BuddyConfig())` directly) stays green.
+
+Graceful degradation: when a weather/nws feed is requested but no location resolves
+(no `.env`, no flags, or a failed ZIP lookup), those feeds are dropped with a logged
+warning and the companion still launches (`hn` unaffected) — replacing the previous
+hard CLI error, so `./buddy` never refuses to start.
+
+- [change] richer `fetch_weather` (now/wind/humidity/comfort/outlook/soon) | files: src/buddy/feeds.py
+- [change] `.env` location config via `_load_dotenv` + `BUDDY_ZIP`/`BUDDY_LAT`/`BUDDY_LON`,
+  gated on a location feed | files: src/buddy/cli.py, .env.example (new)
+- [change] `./buddy` launcher enables hn,weather,nws by default; code default stays
+  passive (INV-5 preserved) | files: buddy
+- [change] missing/failed location degrades gracefully (drop geo feeds + warn) instead
+  of a hard CLI error | files: src/buddy/cli.py
+- Tests: 208 -> 217 (weather-item coverage, dotenv loader + gating, graceful-degrade
+  paths). INV-5 gate unchanged and green.
+- files: src/buddy/feeds.py, src/buddy/cli.py, buddy, .env.example (new),
+  tests/test_feeds.py, tests/test_cli.py
+
+---
+
 ## 2026-07-04 — Ambient feeds: Hacker News, NWS weather, NWS alerts (opt-in)
 
 Three opt-in ambient feeds that surface real-world content in the critter's speech

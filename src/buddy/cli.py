@@ -9,10 +9,15 @@ Entry points
 from __future__ import annotations
 
 import argparse
+import logging
+import os
+from pathlib import Path
 
 from buddy import critters
 from buddy.config import FEED_HTTP_TIMEOUT_S, FEED_USER_AGENT, SPEED_MAX, SPEED_MIN, BuddyConfig
 from buddy.logging_config import setup_logging
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_zip(zip_code: str) -> tuple[float, float]:
@@ -29,6 +34,21 @@ def _resolve_zip(zip_code: str) -> tuple[float, float]:
         data = json.load(resp)
     place = data["places"][0]
     return float(place["latitude"]), float(place["longitude"])
+
+
+def _load_dotenv(path: Path | None = None) -> None:
+    """Load KEY=VALUE pairs from a local .env into os.environ (without overriding
+    existing env vars). Best-effort: silently returns if the file is absent."""
+    if path is None:
+        path = Path(__file__).resolve().parents[2] / ".env"  # project root
+    if not path.is_file():
+        return
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
 
 
 def feed_list(s: str) -> tuple[str, ...]:
@@ -173,14 +193,34 @@ def main(argv: list[str] | None = None) -> int:
         print("Critters: " + ", ".join(critters.names()) + ", random")
         return 0
 
-    if args.zip and (args.lat is None or args.lon is None):
-        try:
-            args.lat, args.lon = _resolve_zip(args.zip)
-        except Exception as exc:  # noqa: BLE001 - any failure becomes a clean CLI error
-            parser.error(f"--zip: could not resolve {args.zip!r}: {exc}")
-
-    if ("weather" in args.feeds or "nws" in args.feeds) and (args.lat is None or args.lon is None):
-        parser.error("--feeds weather/nws require --lat and --lon")
+    needs_location = "weather" in args.feeds or "nws" in args.feeds
+    if needs_location:
+        _load_dotenv()
+        if args.lat is None and args.lon is None and args.zip is None:
+            env_lat, env_lon, env_zip = (
+                os.environ.get("BUDDY_LAT"),
+                os.environ.get("BUDDY_LON"),
+                os.environ.get("BUDDY_ZIP"),
+            )
+            if env_zip:
+                args.zip = env_zip
+            elif env_lat and env_lon:
+                args.lat, args.lon = float(env_lat), float(env_lon)
+        if args.zip and (args.lat is None or args.lon is None):
+            try:
+                args.lat, args.lon = _resolve_zip(args.zip)
+            except Exception as exc:  # noqa: BLE001 - resolution failure degrades, not fatal
+                logger.warning(
+                    "could not resolve zip %r (%s); weather/nws will be skipped", args.zip, exc
+                )
+        if args.lat is None or args.lon is None:
+            dropped = tuple(f for f in ("weather", "nws") if f in args.feeds)
+            args.feeds = tuple(f for f in args.feeds if f not in ("weather", "nws"))
+            logger.warning(
+                "no location for feed(s) %s; skipping them "
+                "(set BUDDY_ZIP in .env or pass --lat/--lon/--zip)",
+                ", ".join(dropped),
+            )
 
     cfg = BuddyConfig(
         animal=args.animal,

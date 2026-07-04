@@ -20,6 +20,7 @@ from buddy.feeds import FeedReactor, fetch_alerts, fetch_hn, fetch_weather
 _LAT = 38.9
 _LON = -77.0
 _HOURLY_URL = "https://api.weather.gov/gridpoints/TEST/0,0/forecast/hourly"
+_FORECAST_URL = "https://api.weather.gov/gridpoints/TEST/0,0/forecast"
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +53,42 @@ def _make_period(temp: int, forecast: str, precip: int | None = 0) -> dict:  # t
         "shortForecast": forecast,
         "probabilityOfPrecipitation": {"value": precip},
     }
+
+
+def _make_dispatch_getter(
+    hourly_periods: list,  # type: ignore[type-arg]
+    forecast_periods: list | None = None,  # type: ignore[type-arg]
+    *,
+    raise_for_forecast: bool = False,
+) -> Callable[[str], object]:
+    """Dispatch getter for weather tests; routes by URL substring.
+
+    Routes:
+        ``/points/``      -> points response with both cached URLs.
+        ``hourly`` in url -> hourly forecast with *hourly_periods*.
+        ``/forecast``     -> 12h forecast with *forecast_periods*, or raises
+                             ``ValueError`` when *raise_for_forecast* is True.
+    """
+
+    def getter(url: str) -> object:
+        if "/points/" in url:
+            return {
+                "properties": {
+                    "forecastHourly": _HOURLY_URL,
+                    "forecast": _FORECAST_URL,
+                }
+            }
+        if "hourly" in url:
+            return {"properties": {"periods": hourly_periods}}
+        if "/forecast" in url:
+            if raise_for_forecast:
+                raise ValueError("forecast network error")
+            if forecast_periods is None:
+                raise KeyError(url)
+            return {"properties": {"periods": forecast_periods}}
+        raise KeyError(url)
+
+    return getter
 
 
 # ---------------------------------------------------------------------------
@@ -118,9 +155,13 @@ def test_weather_builds_now_event() -> None:
     getter = _exact_getter(
         {
             f"https://api.weather.gov/points/{_LAT},{_LON}": {
-                "properties": {"forecastHourly": _HOURLY_URL}
+                "properties": {
+                    "forecastHourly": _HOURLY_URL,
+                    "forecast": _FORECAST_URL,
+                }
             },
             _HOURLY_URL: {"properties": {"periods": periods}},
+            # _FORECAST_URL absent -> nested try/except drops outlook silently
         }
     )
     events = fetch_weather(getter, _LAT, _LON, {})
@@ -143,9 +184,13 @@ def test_weather_soon_when_precip_rises() -> None:
     getter_rise = _exact_getter(
         {
             f"https://api.weather.gov/points/{_LAT},{_LON}": {
-                "properties": {"forecastHourly": _HOURLY_URL}
+                "properties": {
+                    "forecastHourly": _HOURLY_URL,
+                    "forecast": _FORECAST_URL,
+                }
             },
             _HOURLY_URL: {"properties": {"periods": periods_rise}},
+            # _FORECAST_URL absent -> nested try/except drops outlook silently
         }
     )
     events_rise = fetch_weather(getter_rise, _LAT, _LON, {})
@@ -158,13 +203,79 @@ def test_weather_soon_when_precip_rises() -> None:
     getter_dry = _exact_getter(
         {
             f"https://api.weather.gov/points/{_LAT},{_LON}": {
-                "properties": {"forecastHourly": _HOURLY_URL}
+                "properties": {
+                    "forecastHourly": _HOURLY_URL,
+                    "forecast": _FORECAST_URL,
+                }
             },
             _HOURLY_URL: {"properties": {"periods": periods_dry}},
+            # _FORECAST_URL absent -> nested try/except drops outlook silently
         }
     )
     events_dry = fetch_weather(getter_dry, _LAT, _LON, {})
     assert not any(e.kind == "weather.soon" for e in events_dry)
+
+
+def test_weather_now_and_extras() -> None:
+    """Rich hourly period -> weather.now, wind, humid, and comfort all emitted."""
+    hourly_period = {
+        "temperature": 91,
+        "temperatureUnit": "F",
+        "shortForecast": "Sunny",
+        "windDirection": "NW",
+        "windSpeed": "5 mph",
+        "relativeHumidity": {"value": 56},
+        "dewpoint": {"value": 22.7},  # 22.7 C -> 72.86 F -> "muggy out"
+        "probabilityOfPrecipitation": {"value": 1},
+        "isDaytime": True,
+    }
+    getter = _make_dispatch_getter(hourly_periods=[hourly_period])
+    events = fetch_weather(getter, _LAT, _LON, {})
+    kinds = {e.kind: e for e in events}
+
+    assert "weather.now" in kinds
+    assert kinds["weather.now"].data["text"] == "91F Sunny"  # type: ignore[index]
+
+    assert "weather.wind" in kinds
+    assert kinds["weather.wind"].data["text"] == "wind NW 5 mph"  # type: ignore[index]
+
+    assert "weather.humid" in kinds
+    assert kinds["weather.humid"].data["text"] == "humidity 56%"  # type: ignore[index]
+
+    assert "weather.comfort" in kinds
+    assert kinds["weather.comfort"].data["text"] == "muggy out"  # type: ignore[index]
+
+
+def test_weather_outlook_high() -> None:
+    """12h forecast isDaytime period -> weather.outlook 'high near 98F'."""
+    hourly_period = _make_period(85, "Partly Cloudy", 5)
+    forecast_period = {
+        "name": "Independence Day",
+        "isDaytime": True,
+        "temperature": 98,
+        "shortForecast": "Mostly Sunny",
+    }
+    getter = _make_dispatch_getter(
+        hourly_periods=[hourly_period],
+        forecast_periods=[forecast_period],
+    )
+    events = fetch_weather(getter, _LAT, _LON, {})
+    outlook = next((e for e in events if e.kind == "weather.outlook"), None)
+    assert outlook is not None
+    assert outlook.data["text"] == "high near 98F"  # type: ignore[index]
+
+
+def test_weather_outlook_failure_keeps_hourly() -> None:
+    """Forecast fetch failure -> weather.now still returned; outlook silently dropped."""
+    hourly_period = _make_period(78, "Clear", 0)
+    getter = _make_dispatch_getter(
+        hourly_periods=[hourly_period],
+        raise_for_forecast=True,
+    )
+    events = fetch_weather(getter, _LAT, _LON, {})
+    now = next((e for e in events if e.kind == "weather.now"), None)
+    assert now is not None
+    assert not any(e.kind == "weather.outlook" for e in events)
 
 
 # ---------------------------------------------------------------------------

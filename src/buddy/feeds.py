@@ -86,38 +86,91 @@ def fetch_weather(
     lon: float,
     cache: dict,  # type: ignore[type-arg]
 ) -> list[Event]:
-    """Fetch NWS hourly forecast and emit weather events.
+    """Fetch NWS hourly and 12h forecast and emit weather events.
 
     Args:
         getter: Callable ``(url) -> parsed_json``; injected for testing.
         lat: Latitude of the location.
         lon: Longitude of the location.
-        cache: Mutable dict for caching inter-call state (e.g. ``hourly_url``).
+        cache: Mutable dict for caching inter-call state (``hourly_url``,
+            ``forecast_url``).
 
     Returns:
-        ``[weather.now]`` plus ``[weather.soon]`` if precipitation is rising.
+        Subset of: weather.now, weather.wind, weather.humid, weather.comfort,
+        weather.soon, weather.outlook — absent when source fields are missing.
+        Degrades to ``[]`` on any outer error; outlook failure keeps the rest.
     """
     try:
         if cache.get("hourly_url") is None:
             points = getter(f"https://api.weather.gov/points/{lat},{lon}")
             cache["hourly_url"] = points["properties"]["forecastHourly"]  # type: ignore[index]
+            cache["forecast_url"] = points["properties"]["forecast"]  # type: ignore[index]
 
         hourly = getter(cache["hourly_url"])
         periods = hourly["properties"]["periods"]  # type: ignore[index]
+        p = periods[0]
 
-        now_event = Event(
-            "weather.now",
-            {"text": f"{int(periods[0]['temperature'])}F {periods[0]['shortForecast']}"},
+        events: list[Event] = []
+
+        # weather.now — always present
+        events.append(
+            Event("weather.now", {"text": f"{int(p['temperature'])}F {p['shortForecast']}"})
         )
-        events: list[Event] = [now_event]
 
-        p0_precip = periods[0].get("probabilityOfPrecipitation", {}).get("value") or 0
+        # weather.wind
+        if p.get("windSpeed"):
+            text = f"wind {p.get('windDirection', '')} {p['windSpeed']}".strip()
+            events.append(Event("weather.wind", {"text": text}))
+
+        # weather.humid
+        rh = p.get("relativeHumidity", {}).get("value")
+        if rh is not None:
+            events.append(Event("weather.humid", {"text": f"humidity {rh}%"}))
+
+        # weather.comfort (dewpoint-based feel)
+        dp_raw = p.get("dewpoint", {}).get("value")
+        if dp_raw is not None:
+            dp_f = dp_raw * 9 / 5 + 32
+            if dp_f >= 70:
+                comfort_text: str | None = "muggy out"
+            elif dp_f >= 60:
+                comfort_text = "a little humid"
+            elif dp_f <= 40:
+                comfort_text = "crisp + dry"
+            else:
+                comfort_text = None
+            if comfort_text is not None:
+                events.append(Event("weather.comfort", {"text": comfort_text}))
+
+        # weather.soon — scan next 5h for rising precip
+        p0_precip = p.get("probabilityOfPrecipitation", {}).get("value") or 0
         if p0_precip < 50:
             for i, period in enumerate(periods[1:6], start=1):
                 precip = period.get("probabilityOfPrecipitation", {}).get("value") or 0
                 if precip >= 50:
                     events.append(Event("weather.soon", {"text": f"rain likely ~{i}h"}))
                     break
+
+        # weather.outlook — from 12h /forecast; nested so a failure keeps the hourly batch
+        try:
+            forecast = getter(cache["forecast_url"])
+            fp = forecast["properties"]["periods"][0]  # type: ignore[index]
+            if fp.get("isDaytime") and fp.get("temperature") is not None:
+                events.append(
+                    Event(
+                        "weather.outlook",
+                        {"text": f"high near {int(fp['temperature'])}F"},
+                    )
+                )
+            elif fp.get("name") and fp.get("shortForecast"):
+                events.append(
+                    Event(
+                        "weather.outlook",
+                        {"text": f"{fp['name']}: {fp['shortForecast']}"},
+                    )
+                )
+        except Exception:
+            logger.warning("fetch_weather outlook failed", exc_info=True)
 
         return events
     except Exception:

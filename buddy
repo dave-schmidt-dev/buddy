@@ -1,13 +1,26 @@
 #!/bin/sh
 # buddy launcher — start the companion from anywhere.
 #
-#   ./buddy                 # random critter
+#   ./buddy                 # hn + weather + nws feeds (location read from .env)
 #   ./buddy --animal cat    # pick one
 #   ./buddy --list          # list critters
+#   ./buddy --feeds ""      # passive mode (no feeds); same as: python -m buddy
+#
+# The launcher injects --feeds hn,weather,nws by default so a plain ./buddy is
+# full-featured. User args are appended AFTER the default so argparse last-wins
+# lets you override: e.g. ./buddy --feeds hn drops the geo feeds.
+#
+# When weather/nws are requested but no location can be resolved (no .env, no
+# BUDDY_ZIP/LAT/LON), those feeds are silently dropped and the companion still
+# launches — no hard error.
+#
+# To run passive (no feeds), use:
+#   python -m buddy          # always passive regardless of env
+#   ./buddy --feeds ""       # explicit empty override
 #
 # Uses PYTHONPATH=src so it imports the source tree directly. That makes it
 # immune to the macOS quirk where .venv gets re-hidden and the installed
 # `.venv/bin/buddy` shim stops resolving (see README "Dev note"). Only the venv's
 # Python interpreter is needed here, not its site-packages.
 here="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-exec env PYTHONPATH="$here/src" "$here/.venv/bin/python" -m buddy "$@"
+exec env PYTHONPATH="$here/src" "$here/.venv/bin/python" -m buddy --feeds hn,weather,nws "$@"

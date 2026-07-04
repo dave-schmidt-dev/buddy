@@ -2,7 +2,7 @@
 
 An ambient ASCII-art coding companion — a colored line-art critter that struts around a side terminal pane while you work in Claude Code or Codex.
 
-**Status:** v1 + ambient feeds (opt-in) — 9 critters, 208 tests green.
+**Status:** v1 + ambient feeds — 9 critters, 217 tests green.
 
 ## Priorities (in order)
 
@@ -63,33 +63,45 @@ feet) driven by a color mask. A critter idles, blinks, and naps face-on; the wal
 keeps the face forward with feet shuffling side-to-side and body bobbing — popping
 the occasional speech-bubble tip.
 
-### Ambient feeds (opt-in)
+### Ambient feeds
 
-By default buddy is fully passive — no network, no background threads (INV-5).
-Feeds are enabled only with `--feeds`:
+The `./buddy` launcher turns on all three feeds by default (it passes
+`--feeds hn,weather,nws`), reading your location from a local `.env`. The library
+default stays passive: `python -m buddy` (and `BuddyConfig()`) run with no feeds and
+no network. The deliberate opt-in lives in the launcher, so INV-5 still holds — the
+code default reactor is `NullReactor` unless a `--feeds` flag is explicitly passed.
 
 ```bash
-./buddy --feeds hn                              # tech headlines (Hacker News)
-./buddy --feeds hn,weather,nws --lat 38.9 --lon -77.0
-./buddy --feeds weather,nws --zip 20500         # ZIP convenience geocode
+./buddy                                # all feeds on (hn + weather + nws), location from .env
+./buddy --feeds hn                     # override: headlines only
+./buddy --feeds ""                     # override: passive, no feeds
+./buddy --feeds weather,nws --lat 38.9 --lon -77.0   # explicit coordinates
+python -m buddy                        # passive (no launcher default)
 ```
 
-Three feeds, all off by default:
-- `hn` — Hacker News top-story tech headlines (fetches every ~15 min).
-- `weather` — NWS current + imminent conditions (fetches every ~10 min).
-- `nws` — NWS active weather alerts: warnings, watches, advisories (every ~3 min).
+The three feeds:
+- `hn` — Hacker News top-story tech headlines (~15 min).
+- `weather` — NWS current conditions plus a varied rotation: temperature, wind,
+  humidity, a comfort note (e.g. "muggy out"), the day's high, and a near-term
+  precip heads-up (~10 min).
+- `nws` — NWS active weather alerts: warnings, watches, advisories (~3 min).
+  Severe/Extreme alerts preempt the bubble, wake the critter from a nap, and hold.
 
-`weather` and `nws` require coordinates — pass `--lat`/`--lon` directly or use
-`--zip` for a US ZIP code (keyless geocode via api.zippopotam.us). A clean error
-is raised if coordinates are missing when a location feed is selected. All sources
-are keyless — no API keys or secrets.
+Headlines and weather fold into the normal talk rotation.
 
-Headlines and current-weather fold into the normal talk rotation. Severe or Extreme
-NWS alerts preempt the bubble, wake the critter from a nap, and keep it awake for
-the alert's duration.
+**Location** (for `weather`/`nws`): set it once in a local `.env` (copy `.env.example`):
 
-**PRIVACY:** enabling `weather` or `nws` sends your approximate coordinates to
-api.weather.gov. `--zip` sends the ZIP to api.zippopotam.us.
+```bash
+BUDDY_ZIP=20169            # or BUDDY_LAT / BUDDY_LON
+```
+
+or pass `--lat`/`--lon` or `--zip` on the command line (CLI args win over `.env`).
+If no location can be resolved, the weather/nws feeds are simply skipped (with a
+logged warning) and the companion still launches — `hn` keeps working. All sources
+are keyless — no API keys, no secrets. `.env` is gitignored.
+
+**PRIVACY:** enabling `weather`/`nws` sends your approximate coordinates to
+api.weather.gov; `--zip` (or `BUDDY_ZIP`) sends the ZIP to api.zippopotam.us.
 
 ### Beside your work (side pane)
 
