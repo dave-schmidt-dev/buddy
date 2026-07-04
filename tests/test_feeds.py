@@ -11,7 +11,7 @@ from collections.abc import Callable
 import pytest
 
 from buddy.events import Event
-from buddy.feeds import FeedReactor, fetch_alerts, fetch_hn, fetch_weather
+from buddy.feeds import FeedReactor, fetch_alerts, fetch_hn, fetch_weather, weather_facets
 
 # ---------------------------------------------------------------------------
 # Shared test constants
@@ -170,9 +170,9 @@ def test_weather_builds_now_event() -> None:
     assert now.data["text"] == "72F Sunny"  # type: ignore[index]
 
 
-def test_weather_soon_when_precip_rises() -> None:
-    """weather.soon emitted when precip rises in the scan window; absent when it doesn't."""
-    # Case 1: period at index i=2 (hours ahead) crosses the 50% threshold
+def test_weather_soon_reports_probability_and_timing() -> None:
+    """weather.soon carries the crossing hour's probability + timing; thresholds honored."""
+    # Case 1: period at index i=2 (hours ahead) crosses the 50% "likely" threshold
     periods_rise = [
         _make_period(72, "Sunny", 10),  # p0: precip < 50 -> scan begins
         _make_period(70, "Cloudy", 20),  # i=1: still below threshold
@@ -193,12 +193,36 @@ def test_weather_soon_when_precip_rises() -> None:
             # _FORECAST_URL absent -> nested try/except drops outlook silently
         }
     )
-    events_rise = fetch_weather(getter_rise, _LAT, _LON, {})
+    events_rise = weather_facets(getter_rise, _LAT, _LON, {})
     soon = next((e for e in events_rise if e.kind == "weather.soon"), None)
     assert soon is not None
-    assert soon.data["text"] == "rain likely ~2h"  # type: ignore[index]
+    assert soon.data["text"] == "~60% rain in 2h"  # type: ignore[index]
 
-    # Case 2: no precip crosses 50% -> no weather.soon event
+    # Case 2: no hour reaches 50% but a sustained 40% chance -> soft heads-up
+    periods_maybe = [
+        _make_period(72, "Sunny", 10),  # p0 < 50
+        _make_period(70, "Cloudy", 40),  # i=1..: peaks at 40 -> "rain chance ~40%"
+        _make_period(69, "Cloudy", 30),
+        _make_period(68, "Cloudy", 20),
+        _make_period(67, "Clear", 10),
+        _make_period(66, "Clear", 5),
+    ]
+    getter_maybe = _exact_getter(
+        {
+            f"https://api.weather.gov/points/{_LAT},{_LON}": {
+                "properties": {"forecastHourly": _HOURLY_URL, "forecast": _FORECAST_URL}
+            },
+            _HOURLY_URL: {"properties": {"periods": periods_maybe}},
+        }
+    )
+    soft = next(
+        (e for e in weather_facets(getter_maybe, _LAT, _LON, {}) if e.kind == "weather.soon"),
+        None,
+    )
+    assert soft is not None
+    assert soft.data["text"] == "rain chance ~40%"  # type: ignore[index]
+
+    # Case 3: everything below 30% -> no weather.soon event at all
     periods_dry = [_make_period(72 - i, "Clear", 5) for i in range(6)]
     getter_dry = _exact_getter(
         {
@@ -212,7 +236,7 @@ def test_weather_soon_when_precip_rises() -> None:
             # _FORECAST_URL absent -> nested try/except drops outlook silently
         }
     )
-    events_dry = fetch_weather(getter_dry, _LAT, _LON, {})
+    events_dry = weather_facets(getter_dry, _LAT, _LON, {})
     assert not any(e.kind == "weather.soon" for e in events_dry)
 
 
@@ -230,7 +254,7 @@ def test_weather_now_and_extras() -> None:
         "isDaytime": True,
     }
     getter = _make_dispatch_getter(hourly_periods=[hourly_period])
-    events = fetch_weather(getter, _LAT, _LON, {})
+    events = weather_facets(getter, _LAT, _LON, {})
     kinds = {e.kind: e for e in events}
 
     assert "weather.now" in kinds
@@ -259,7 +283,7 @@ def test_weather_outlook_high() -> None:
         hourly_periods=[hourly_period],
         forecast_periods=[forecast_period],
     )
-    events = fetch_weather(getter, _LAT, _LON, {})
+    events = weather_facets(getter, _LAT, _LON, {})
     outlook = next((e for e in events if e.kind == "weather.outlook"), None)
     assert outlook is not None
     assert outlook.data["text"] == "high near 98F"  # type: ignore[index]
@@ -276,6 +300,47 @@ def test_weather_outlook_failure_keeps_hourly() -> None:
     now = next((e for e in events if e.kind == "weather.now"), None)
     assert now is not None
     assert not any(e.kind == "weather.outlook" for e in events)
+
+
+def test_fetch_weather_emits_now_plus_one_rotating_facet() -> None:
+    """fetch_weather emits weather.now + at most one extra, rotating over polls.
+
+    weather_facets here yields now + {wind, humid, comfort, outlook} (no soon,
+    since precip stays low). Across several polls sharing one cache, the single
+    extra must round-robin through all four so no facet is starved and no poll
+    ever floods the buffer with more than two events.
+    """
+    rich = {
+        "temperature": 80,
+        "temperatureUnit": "F",
+        "shortForecast": "Sunny",
+        "windDirection": "NW",
+        "windSpeed": "5 mph",
+        "relativeHumidity": {"value": 56},
+        "dewpoint": {"value": 22.7},  # 72.9 F -> "muggy out"
+        "probabilityOfPrecipitation": {"value": 10},
+        "isDaytime": True,
+    }
+    getter = _make_dispatch_getter(
+        hourly_periods=[rich, _make_period(78, "Clear", 10)],
+        forecast_periods=[
+            {"name": "Today", "isDaytime": True, "temperature": 88, "shortForecast": "Sunny"}
+        ],
+    )
+    cache: dict = {}  # type: ignore[type-arg]
+    seen_extras: set[str] = set()
+    for _ in range(8):
+        events = fetch_weather(getter, _LAT, _LON, cache)
+        assert len(events) == 2  # now + exactly one extra
+        assert events[0].kind == "weather.now"
+        assert events[1].kind != "weather.now"
+        seen_extras.add(events[1].kind)
+    assert seen_extras == {
+        "weather.wind",
+        "weather.humid",
+        "weather.comfort",
+        "weather.outlook",
+    }
 
 
 # ---------------------------------------------------------------------------

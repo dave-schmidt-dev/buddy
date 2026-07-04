@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
+import os
 
 import pytest
 
+from buddy.config import LOG_PATH
 from buddy.logging_config import setup_logging
 
 
@@ -21,6 +23,11 @@ def clean_buddy_logger():
     for h in list(logger.handlers):
         logger.removeHandler(h)
         h.close()
+
+
+def test_log_path_is_namespaced_by_pid():
+    """LOG_PATH carries this process's PID so concurrent instances don't share a file."""
+    assert LOG_PATH == f"/tmp/buddy-{os.getpid()}.log"
 
 
 def test_debug_mode_attaches_rotating_handler_at_debug_level():

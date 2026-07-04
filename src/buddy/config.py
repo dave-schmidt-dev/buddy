@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 # ---------------------------------------------------------------------------
@@ -40,7 +41,9 @@ MAX_BUBBLE_WIDTH = 22  # Maximum character width of a speech bubble
 SPEED_MIN = 0.0  # Exclusive lower bound for --speed
 SPEED_MAX = 10.0  # Inclusive upper bound for --speed
 
-LOG_PATH = "/tmp/buddy.log"  # Rotating log file destination
+# Rotating log destination, namespaced by PID so concurrent instances don't
+# share a file (a shared RotatingFileHandler races on rotation across processes).
+LOG_PATH = f"/tmp/buddy-{os.getpid()}.log"
 
 # Ambient feed constants (opt-in; see feeds.py)
 FEED_HN_INTERVAL_S = 900  # 15 min between Hacker News polls

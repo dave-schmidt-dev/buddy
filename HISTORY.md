@@ -4,6 +4,31 @@ Meaningful changes, bugs, remediation, and regression notes for the `buddy` proj
 
 ---
 
+## 2026-07-04 — Feed tuning: weather-vs-HN balance, richer precip, per-PID logs
+
+Three follow-ups after the ambient-feeds ship (194 tests green):
+
+- [tune] weather no longer crowds out HN headlines. `weather_facets` still computes every
+  facet (now/wind/humid/comfort/soon/outlook, each independently tested), but the new
+  `fetch_weather` wrapper emits only `weather.now` plus one round-robin extra per ~10-min
+  poll, rotating through available facets via a `wx_facet` counter in the reactor's cache.
+  Was: up to 6 weather events per poll flooding the maxlen-8 ambient deque and evicting
+  headlines before they surfaced | files: src/buddy/feeds.py, tests/test_feeds.py
+- [tune] richer `weather.soon` heuristic. Was "rain likely ~Nh" at the first hour crossing
+  50%. Now reports probability + timing ("~60% rain in 2h", "~80% rain this hr" when
+  imminent) and adds a soft heads-up for a sustained sub-50% chance ("rain chance ~40%",
+  triggered at >=30% peak) | files: src/buddy/feeds.py, tests/test_feeds.py
+- [change] per-PID log path. `LOG_PATH` is now `/tmp/buddy-<pid>.log` so concurrent
+  `./buddy` instances don't share one file (a shared `RotatingFileHandler` races on
+  rotation across processes) | files: src/buddy/config.py, tests/test_logging_config.py,
+  README.md
+
+Also flipped the finished plan-tasks artifact
+(`~/Documents/Projects/.plans/buddy/ambient-feeds-2026-07-04-tasks.md`) to COMPLETE — all
+nine tasks shipped this session; the file was only cosmetically stale.
+
+---
+
 ## 2026-07-04 — Ship checkpoint: two bugs fixed (Codex second opinion)
 
 A Codex review during the ship pass surfaced two real bugs, both fixed with regression

@@ -80,13 +80,17 @@ def fetch_hn(
         return []
 
 
-def fetch_weather(
+def weather_facets(
     getter: Callable[[str], object],
     lat: float,
     lon: float,
     cache: dict,  # type: ignore[type-arg]
 ) -> list[Event]:
-    """Fetch NWS hourly and 12h forecast and emit weather events.
+    """Compute every available weather facet for the current conditions.
+
+    This is the full computation: it fetches the NWS hourly and 12h forecasts
+    and returns each facet that its source fields support. ``fetch_weather``
+    wraps this to emit only a balanced subset per poll (see that function).
 
     Args:
         getter: Callable ``(url) -> parsed_json``; injected for testing.
@@ -96,9 +100,10 @@ def fetch_weather(
             ``forecast_url``).
 
     Returns:
-        Subset of: weather.now, weather.wind, weather.humid, weather.comfort,
-        weather.soon, weather.outlook — absent when source fields are missing.
-        Degrades to ``[]`` on any outer error; outlook failure keeps the rest.
+        ``weather.now`` first (always, when reachable), then any of
+        weather.wind, weather.humid, weather.comfort, weather.soon,
+        weather.outlook whose source fields are present. Degrades to ``[]`` on
+        any outer error; an outlook failure keeps the rest.
     """
     try:
         if cache.get("hourly_url") is None:
@@ -142,14 +147,26 @@ def fetch_weather(
             if comfort_text is not None:
                 events.append(Event("weather.comfort", {"text": comfort_text}))
 
-        # weather.soon — scan next 5h for rising precip
-        p0_precip = p.get("probabilityOfPrecipitation", {}).get("value") or 0
+        # weather.soon — look ahead up to 5h. If it's already likely raining
+        # now, weather.now covers it, so only forecast a change. Report the
+        # first hour that crosses "likely" (>= 50%) with its probability and
+        # timing; failing that, flag a sustained lower chance (>= 30%).
+        window = periods[:6]  # current hour + next 5
+        p0_precip = window[0].get("probabilityOfPrecipitation", {}).get("value") or 0
         if p0_precip < 50:
-            for i, period in enumerate(periods[1:6], start=1):
-                precip = period.get("probabilityOfPrecipitation", {}).get("value") or 0
-                if precip >= 50:
-                    events.append(Event("weather.soon", {"text": f"rain likely ~{i}h"}))
-                    break
+            upcoming = [
+                (i, period.get("probabilityOfPrecipitation", {}).get("value") or 0)
+                for i, period in enumerate(window[1:], start=1)
+            ]
+            likely = next(((i, pv) for i, pv in upcoming if pv >= 50), None)
+            if likely is not None:
+                i, pv = likely
+                text = f"~{pv}% rain this hr" if i == 1 else f"~{pv}% rain in {i}h"
+                events.append(Event("weather.soon", {"text": text}))
+            else:
+                peak = max((pv for _, pv in upcoming), default=0)
+                if peak >= 30:
+                    events.append(Event("weather.soon", {"text": f"rain chance ~{peak}%"}))
 
         # weather.outlook — from 12h /forecast; nested so a failure keeps the hourly batch
         try:
@@ -176,6 +193,37 @@ def fetch_weather(
     except Exception:
         logger.warning("fetch_weather failed", exc_info=True)
         return []
+
+
+def fetch_weather(
+    getter: Callable[[str], object],
+    lat: float,
+    lon: float,
+    cache: dict,  # type: ignore[type-arg]
+) -> list[Event]:
+    """Emit the current-conditions anchor plus one rotating detail.
+
+    ``weather_facets`` can yield up to six events per poll. Feeding all of them
+    into the critter's small ambient buffer each ~10-min cycle crowds out the
+    other feeds (HN headlines especially). To keep the mix fair, this emits
+    ``weather.now`` (the anchor) plus a single extra facet, round-robining
+    through whatever extras exist so variety accrues across polls instead of
+    flooding one. Rotation state lives in *cache* (``wx_facet``), which the
+    reactor persists across polls.
+
+    Returns:
+        ``[]`` when no facet is reachable, ``[now]`` when there are no extras,
+        otherwise ``[now, one_rotating_extra]``.
+    """
+    facets = weather_facets(getter, lat, lon, cache)
+    if not facets:
+        return []
+    now, extras = facets[0], facets[1:]
+    if not extras:
+        return [now]
+    idx = cache.get("wx_facet", 0)
+    cache["wx_facet"] = idx + 1
+    return [now, extras[idx % len(extras)]]
 
 
 def fetch_alerts(

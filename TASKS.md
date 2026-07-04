@@ -28,8 +28,3 @@ v1 is built and green with the design-pass art (see HISTORY.md 2026-07-03). Rema
 - **Blocked by:** none (future enhancement)
 - **Done when:**
   - A flagged run reacts to real activity; default run remains passive (INV-5 test still green).
-
-### Task (deferred): Per-PID log path
-- **Status:** pending
-- **Description:** `/tmp/buddy.log` is shared across instances; give concurrent
-  instances distinct log files if multi-instance use becomes common.
