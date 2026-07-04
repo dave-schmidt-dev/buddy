@@ -205,7 +205,14 @@ def main(argv: list[str] | None = None) -> int:
             if env_zip:
                 args.zip = env_zip
             elif env_lat and env_lon:
-                args.lat, args.lon = float(env_lat), float(env_lon)
+                try:
+                    args.lat, args.lon = float(env_lat), float(env_lon)
+                except ValueError:
+                    logger.warning(
+                        "invalid BUDDY_LAT/BUDDY_LON in .env (%r, %r); ignoring",
+                        env_lat,
+                        env_lon,
+                    )
         if args.zip and (args.lat is None or args.lon is None):
             try:
                 args.lat, args.lon = _resolve_zip(args.zip)

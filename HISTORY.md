@@ -4,6 +4,22 @@ Meaningful changes, bugs, remediation, and regression notes for the `buddy` proj
 
 ---
 
+## 2026-07-04 — Ship checkpoint: two bugs fixed (Codex second opinion)
+
+A Codex review during the ship pass surfaced two real bugs, both fixed with regression
+tests (192 tests green). Two other Codex findings were false positives and dismissed: a
+"missing" capybara snapshot (it was deleted in the roster rename, not stale) and a
+README/HISTORY test-count mismatch (README's 190 is current; the 220 is a point-in-time
+HISTORY log entry).
+
+- [bug] pressing `t` (force_talk) during a Severe/Extreme NWS alert rendered the manual
+  quip with the alert frame `(! ... !)` and alert color, because `force_talk` did not
+  clear `_alert_level` | files: src/buddy/creature.py
+- [bug] a malformed `BUDDY_LAT`/`BUDDY_LON` in `.env` raised an uncaught `ValueError`
+  during launch instead of degrading (drop weather/nws, still launch) | files: src/buddy/cli.py
+
+---
+
 ## 2026-07-04 — Meme-fluent dialogue for the four critters
 
 Expanded the speech pools with ~41 quirky, chronically-online one-liners sourced from

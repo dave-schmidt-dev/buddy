@@ -323,6 +323,17 @@ def test_alert_level_tracks_severity():
     assert c.alert_level == "Severe"
 
 
+def test_force_talk_clears_alert_level():
+    """force_talk() must clear any active alert styling so a manual quip never
+    renders with an alert frame or alert color."""
+    c = _make()
+    c.tick([Event("nws.alert", {"text": "Tornado Warning", "severity": "Severe", "id": "ft1"})])
+    assert c.alert_level == "Severe", "sanity: alert should be showing before force_talk"
+    c.force_talk()
+    assert c.alert_level is None, "force_talk must clear _alert_level"
+    assert c.message in set(dialogue.all_lines()), "message must be a normal quip from a known pool"
+
+
 def test_scripted_event_stream_is_deterministic():
     """INV-3: two creatures with the same seed produce identical output under identical events."""
     a = _make(seed=77)

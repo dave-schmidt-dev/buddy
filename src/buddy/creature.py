@@ -244,6 +244,7 @@ class Creature:
         """Immediately show a dialogue bubble (bound to a key press)."""
         self.message = dialogue.speak(self.rng, self.critter.name)
         self.bubble_timer = config.BUBBLE_TICKS
+        self._alert_level = None
 
     # -- introspection (for tests / rendering) ---------------------------
 

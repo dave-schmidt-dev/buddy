@@ -268,6 +268,34 @@ class TestFeedsValidation:
         assert len(launched) == 1
         assert launched[0].feeds == ("hn",)
 
+    def test_malformed_env_latlon_degrades(self, monkeypatch):
+        """BUDDY_LAT/BUDDY_LON with non-numeric values degrade (no ValueError traceback)."""
+        from buddy.app import BuddyApp
+        from buddy.config import BuddyConfig
+
+        monkeypatch.setattr("buddy.cli._load_dotenv", lambda *a, **k: None)
+        monkeypatch.setenv("BUDDY_LAT", "not-a-number")
+        monkeypatch.setenv("BUDDY_LON", "also-bad")
+        monkeypatch.delenv("BUDDY_ZIP", raising=False)
+
+        def resolver_must_not_be_called(z):
+            raise AssertionError("_resolve_zip should not be reached when no zip is set")
+
+        monkeypatch.setattr("buddy.cli._resolve_zip", resolver_must_not_be_called)
+
+        launched: list[BuddyConfig] = []
+
+        def fake_init(self, cfg=None):
+            launched.append(cfg)
+
+        monkeypatch.setattr(BuddyApp, "__init__", fake_init)
+        monkeypatch.setattr(BuddyApp, "run", lambda self, **kw: None)
+
+        result = main(["--feeds", "weather"])
+        assert result == 0
+        assert len(launched) == 1
+        assert launched[0].feeds == ()
+
 
 class TestDotenv:
     """.env loading and INV-5 gating."""
