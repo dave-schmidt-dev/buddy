@@ -4,6 +4,23 @@ Meaningful changes, bugs, remediation, and regression notes for the `buddy` proj
 
 ---
 
+## 2026-07-03 — `./buddy` launcher script
+
+Added a one-line start script at the repo root: `./buddy [args]`. It runs the app
+via `PYTHONPATH=src .venv/bin/python -m buddy`, so it imports the source tree
+directly and keeps working even when macOS re-hides `.venv` and the installed
+`.venv/bin/buddy` console-script shim stops resolving (the same quirk the
+site-packages symlink works around). Verified it launches with `.venv` fully hidden.
+README documents it plus a `~/.zshrc` alias (`alias buddy='…/buddy'`) for global use.
+
+- [change] add `./buddy` launcher; document launcher + shell alias | files: buddy
+  (new), README.md
+- Not linted/tested by the gate (shell script; `make check` scopes ruff/pytest to
+  `src`/`tests`), but exercised manually: `--list` works, and launches under a hidden
+  `.venv`.
+
+---
+
 ## 2026-07-03 — Drop CI; the gate runs automatically via a local git hook
 
 Removed the GitHub Actions workflow (`.github/workflows/ci.yml`) added during the

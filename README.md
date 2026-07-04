@@ -33,15 +33,27 @@ An ambient ASCII-art coding companion — a colored line-art critter that struts
 
 ### Run it
 
+The `./buddy` launcher is the simplest way — it works from the project root and
+keeps working even when macOS re-hides `.venv` (see the dev note below):
+
 ```bash
-# from the project root, using the project venv
-.venv/bin/buddy                      # random critter
-.venv/bin/buddy --animal capybara    # pick one
-.venv/bin/buddy --list               # list critters
-.venv/bin/buddy --speed 1.5          # faster strut (0 < speed <= 10)
-.venv/bin/buddy --seed 42            # reproducible run
-.venv/bin/buddy --debug              # DEBUG logging to /tmp/buddy.log
+./buddy                      # random critter
+./buddy --animal capybara    # pick one
+./buddy --list               # list critters
+./buddy --speed 1.5          # faster strut (0 < speed <= 10)
+./buddy --seed 42            # reproducible run
+./buddy --debug              # DEBUG logging to /tmp/buddy.log
 ```
+
+Want it available everywhere? Add one alias to your shell (`~/.zshrc`):
+
+```bash
+alias buddy='/Users/dave/Documents/Projects/buddy/buddy'
+```
+
+Then just `buddy` from any directory. (The installed `.venv/bin/buddy` console
+script also works, but it's the one that breaks under the hidden-`.venv` quirk;
+prefer the launcher.)
 
 Keys while running: `q` quit · `space` next critter · `t` talk.
 
@@ -54,11 +66,11 @@ the occasional speech-bubble tip.
 ### Beside your work (side pane)
 
 ```bash
-tmux split-window -h '.venv/bin/buddy'   # buddy in a vertical split
+tmux split-window -h "$PWD/buddy"   # buddy in a vertical split
 ```
 
-Or just open a second terminal and run `buddy` there while you work in Claude Code
-or Codex in the first.
+Or just open a second terminal and run `buddy` (with the alias above) there while
+you work in Claude Code or Codex in the first.
 
 ### Iterate on the art
 

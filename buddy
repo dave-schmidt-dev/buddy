@@ -1,0 +1,13 @@
+#!/bin/sh
+# buddy launcher — start the companion from anywhere.
+#
+#   ./buddy                 # random critter
+#   ./buddy --animal cat    # pick one
+#   ./buddy --list          # list critters
+#
+# Uses PYTHONPATH=src so it imports the source tree directly. That makes it
+# immune to the macOS quirk where .venv gets re-hidden and the installed
+# `.venv/bin/buddy` shim stops resolving (see README "Dev note"). Only the venv's
+# Python interpreter is needed here, not its site-packages.
+here="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+exec env PYTHONPATH="$here/src" "$here/.venv/bin/python" -m buddy "$@"
