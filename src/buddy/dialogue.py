@@ -85,6 +85,9 @@ SPECIES: dict[str, list[str]] = {
         "loaf mode: on",
         "sun spot > standup",
         "3am zoomies",
+        "the disrespect",
+        "i own this repo now",
+        "sun's out, naps out",
     ],
     "duck": [
         "rubber duck says hi",
@@ -105,6 +108,9 @@ SPECIES: dict[str, list[str]] = {
         "keep calm, quack on",
         "quack is the new black",
         "here for the bread",
+        "duck, duck, deploy",
+        "just here to vibe",
+        "quack to work",
     ],
     "rabbit": [
         "hop to it!",
@@ -126,6 +132,9 @@ SPECIES: dict[str, list[str]] = {
         "binky! happy hop",
         "zoomies engaged",
         "i carrot about it",
+        "hoppin' mad at bugs",
+        "carrot > deadline",
+        "back to the burrow",
     ],
     "possum": [
         "playing dead til 5",
