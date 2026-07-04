@@ -4,6 +4,21 @@ Meaningful changes, bugs, remediation, and regression notes for the `buddy` proj
 
 ---
 
+## 2026-07-04 — Meme-fluent dialogue for the four critters
+
+Expanded the speech pools with ~41 quirky, chronically-online one-liners sourced from
+current animal memes and programmer humor, so a terminally-online dev feels at home:
+possum leans into relatable-anxiety energy ("just a lil guy", "screaming internally",
+"5am trash goblin"), duck gets the rubber-duck/Stack-Overflow bit ("quack overflow",
+"what the duck?!"), rabbit gets the classics ("what's up, doc?", "down the rabbit
+hole"), cat gets unbothered menace ("plotting, as usual", "rent free up here"), plus
+universal quips ("unbothered, thriving", "touch grass? nah"). All lines are ASCII and
+stay within the 22-char bubble — the import-time `_too_wide` guard enforces it.
+
+- [change] +41 SPECIES/quips lines (cat/duck/possum/rabbit + general) | files: src/buddy/dialogue.py
+
+---
+
 ## 2026-07-04 — Roster trimmed to four critters
 
 The critter roster is now cat, duck, possum, rabbit (dropped capybara, dog, sloth,
