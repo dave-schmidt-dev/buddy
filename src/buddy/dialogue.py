@@ -81,7 +81,6 @@ SPECIES: dict[str, list[str]] = {
         "plotting, as usual",
         "rent free up here",
         "i has commits?",
-        "meow means no",
         "the audacity of bugs",
         "loaf mode: on",
         "sun spot > standup",
@@ -103,7 +102,6 @@ SPECIES: dict[str, list[str]] = {
         "what the duck?!",
         "you quack me up",
         "pond vibes only",
-        "no pun inten-duck-ed",
         "keep calm, quack on",
         "quack is the new black",
         "here for the bread",
@@ -127,7 +125,6 @@ SPECIES: dict[str, list[str]] = {
         "some bunny loves u",
         "binky! happy hop",
         "zoomies engaged",
-        "un-hop-gettable",
         "i carrot about it",
     ],
     "possum": [
