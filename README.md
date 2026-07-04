@@ -2,7 +2,7 @@
 
 An ambient ASCII-art coding companion — a colored line-art critter that struts around a side terminal pane while you work in Claude Code or Codex.
 
-**Status:** v1 implemented — ambient companion runs, 9 critters with per-part color, full test gate green.
+**Status:** v1 + ambient feeds (opt-in) — 9 critters, 208 tests green.
 
 ## Priorities (in order)
 
@@ -21,7 +21,7 @@ An ambient ASCII-art coding companion — a colored line-art critter that struts
 | `INVARIANTS.md` | Closed-loop charter — MUST-hold system contracts (INV-1..INV-5). |
 | `ledger.yaml` | Machine state for the closed-loop harvest tool. |
 | `LICENSE` | MIT. |
-| `src/buddy/` | Package source: `critters` (art), `creature` (state machine), `render`/`stage` (view), `app`, `cli`, `dialogue`, `events`, `devsheet`. |
+| `src/buddy/` | Package source: `critters` (art), `creature` (state machine), `render`/`stage` (view), `app`, `cli`, `dialogue`, `events`, `feeds`, `devsheet`. |
 | `tests/` | Unit + snapshot tests (one gate test per invariant). |
 
 ## Planning artifacts
@@ -62,6 +62,34 @@ Each has a muted body color plus per-part accents (eyes, nose, beak, tongue, tai
 feet) driven by a color mask. A critter idles, blinks, and naps face-on; the walk
 keeps the face forward with feet shuffling side-to-side and body bobbing — popping
 the occasional speech-bubble tip.
+
+### Ambient feeds (opt-in)
+
+By default buddy is fully passive — no network, no background threads (INV-5).
+Feeds are enabled only with `--feeds`:
+
+```bash
+./buddy --feeds hn                              # tech headlines (Hacker News)
+./buddy --feeds hn,weather,nws --lat 38.9 --lon -77.0
+./buddy --feeds weather,nws --zip 20500         # ZIP convenience geocode
+```
+
+Three feeds, all off by default:
+- `hn` — Hacker News top-story tech headlines (fetches every ~15 min).
+- `weather` — NWS current + imminent conditions (fetches every ~10 min).
+- `nws` — NWS active weather alerts: warnings, watches, advisories (every ~3 min).
+
+`weather` and `nws` require coordinates — pass `--lat`/`--lon` directly or use
+`--zip` for a US ZIP code (keyless geocode via api.zippopotam.us). A clean error
+is raised if coordinates are missing when a location feed is selected. All sources
+are keyless — no API keys or secrets.
+
+Headlines and current-weather fold into the normal talk rotation. Severe or Extreme
+NWS alerts preempt the bubble, wake the critter from a nap, and keep it awake for
+the alert's duration.
+
+**PRIVACY:** enabling `weather` or `nws` sends your approximate coordinates to
+api.weather.gov. `--zip` sends the ZIP to api.zippopotam.us.
 
 ### Beside your work (side pane)
 
@@ -123,7 +151,7 @@ make link         # just (re)create the symlink
 ## Conventions
 
 - All files self-contained under this directory.
-- Secrets in BWS. Never committed. (buddy has no secrets today; passive by default per INV-5.)
+- Secrets in BWS. Never committed. (buddy has no secrets; network is opt-in behind `--feeds` per INV-5.)
 - Update `HISTORY.md` alongside every meaningful change. Bug entries cite the files touched (`- files: path/a.py, path/b.ts`).
 - Tests verify real behavior — no smoke-only "did it run" checks. Behavioral core is unit-tested headless; the TUI is snapshot-tested via `pytest-textual-snapshot`.
 - Every change must uphold every invariant in `INVARIANTS.md`.

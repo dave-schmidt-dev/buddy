@@ -91,7 +91,7 @@ class FileWatchReactor:
         raise NotImplementedError("FileWatchReactor is not yet implemented")
 
 
-def get_reactor(name: str = "null") -> Reactor:
+def get_reactor(name: str = "null", **kwargs) -> Reactor:
     """Factory that returns a Reactor instance by name.
 
     v1's CLI always passes ``"null"``.  Other names are reserved for future
@@ -99,7 +99,10 @@ def get_reactor(name: str = "null") -> Reactor:
     rather than a silent fallback.
 
     Args:
-        name: One of ``"null"``, ``"git"``, or ``"filewatch"``.
+        name: One of ``"null"``, ``"feeds"``, ``"git"``, or ``"filewatch"``.
+        **kwargs: Extra keyword arguments forwarded to the chosen reactor.
+            For ``"feeds"``: ``feeds``, ``latitude``, ``longitude``,
+            ``user_agent``, and ``getter`` are forwarded to ``FeedReactor``.
 
     Returns:
         A Reactor instance matching *name*.
@@ -110,6 +113,10 @@ def get_reactor(name: str = "null") -> Reactor:
     match name:
         case "null":
             return NullReactor()
+        case "feeds":
+            from buddy.feeds import FeedReactor  # lazy import keeps module top passive (INV-5)
+
+            return FeedReactor(**kwargs)
         case "git":
             return GitReactor()
         case "filewatch":

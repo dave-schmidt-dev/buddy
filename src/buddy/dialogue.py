@@ -243,3 +243,29 @@ def all_lines() -> list[str]:
     general = [line for lines in DIALOGUE.values() for line in lines]
     species = [line for lines in SPECIES.values() for line in lines]
     return general + species
+
+
+def format_feed_line(text: str, width: int = MAX_BUBBLE_WIDTH, ellipsis: str = "...") -> str:
+    """Collapse and truncate *text* so it fits within *width* characters.
+
+    Collapses internal whitespace runs to a single space and strips leading/trailing
+    whitespace before measuring. If the collapsed text already fits, it is returned
+    unchanged. Otherwise it is truncated and the *ellipsis* suffix is appended.
+
+    Postcondition: ``len(result) <= width`` for every input.
+
+    Args:
+        text: The raw string to format (e.g. a news headline or feed entry).
+        width: Maximum number of characters in the returned string. Defaults to
+            ``MAX_BUBBLE_WIDTH``.
+        ellipsis: Suffix appended when truncation is needed. Defaults to ``"..."``.
+
+    Returns:
+        A string of at most *width* characters.
+    """
+    collapsed = " ".join(text.split())
+    if len(collapsed) <= width:
+        return collapsed
+    if width >= len(ellipsis):
+        return collapsed[: width - len(ellipsis)] + ellipsis
+    return collapsed[:width]

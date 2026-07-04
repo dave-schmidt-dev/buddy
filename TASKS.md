@@ -23,6 +23,8 @@ v1 is built and green with the design-pass art (see HISTORY.md 2026-07-03). Rema
 - **Description:** Implement `GitReactor` / `FileWatchReactor` (currently inert stubs)
   behind an explicit opt-in flag, so the critter reacts to git status / file saves /
   Claude Code hook events. Must stay opt-in — INV-5 keeps the default run passive.
+  (The ambient `FeedReactor` is implemented — see HISTORY.md 2026-07-04. This task
+  is specifically about the git/file-watch/hook-event reactors.)
 - **Blocked by:** none (future enhancement)
 - **Done when:**
   - A flagged run reacts to real activity; default run remains passive (INV-5 test still green).

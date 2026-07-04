@@ -42,6 +42,17 @@ SPEED_MAX = 10.0  # Inclusive upper bound for --speed
 
 LOG_PATH = "/tmp/buddy.log"  # Rotating log file destination
 
+# Ambient feed constants (opt-in; see feeds.py)
+FEED_HN_INTERVAL_S = 900  # 15 min between Hacker News polls
+FEED_WEATHER_INTERVAL_S = 600  # 10 min between NWS weather polls
+FEED_ALERT_INTERVAL_S = 180  # 3 min between NWS alert polls (time-sensitive)
+FEED_HTTP_TIMEOUT_S = 5  # per-request network timeout
+FEED_HN_COUNT = 8  # number of HN top stories to cycle
+ALERT_BUBBLE_TICKS = 120  # a preempting alert lingers longer than a normal bubble
+FEED_MIX = 0.5  # when a feed line is queued, chance a talk-roll uses it vs a species quip
+FEED_USER_AGENT = "buddy-terminal-companion/0.1"  # NWS requires a UA; keep it PII-free
+PREEMPT_SEVERITIES = frozenset({"Extreme", "Severe"})  # NWS severities that preempt + wake
+
 
 # ---------------------------------------------------------------------------
 # Config dataclass
@@ -61,3 +72,6 @@ class BuddyConfig:
     seed: int | None = None  # Optional RNG seed for reproducible playback
     animate: bool = True  # Whether to run animations (False = static snapshot)
     debug: bool = False  # Enable DEBUG-level logging
+    feeds: tuple[str, ...] = ()  # enabled feeds subset of {"hn","weather","nws"}; empty = passive
+    latitude: float | None = None  # for weather/nws feeds
+    longitude: float | None = None  # for weather/nws feeds

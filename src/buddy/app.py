@@ -42,7 +42,16 @@ class BuddyApp(App):
         super().__init__()
         self.cfg = cfg or BuddyConfig()
         self.rng = random.Random(self.cfg.seed)
-        self.reactor = events.get_reactor("null")  # INV-5: passive default
+        if self.cfg.feeds:
+            self.reactor = events.get_reactor(
+                "feeds",
+                feeds=self.cfg.feeds,
+                latitude=self.cfg.latitude,
+                longitude=self.cfg.longitude,
+                user_agent=config.FEED_USER_AGENT,
+            )
+        else:
+            self.reactor = events.get_reactor("null")  # INV-5: passive default
         self._names = critters.names()
         if self.cfg.animal == "random":
             self._idx = self.rng.randrange(len(self._names))
@@ -63,6 +72,12 @@ class BuddyApp(App):
         if self.cfg.animate:
             interval = 1.0 / (config.FPS * self.cfg.speed)
             self.set_interval(interval, self._tick)
+
+    def on_unmount(self) -> None:
+        """Stop the feed reactor's background thread on shutdown, if any."""
+        close = getattr(self.reactor, "close", None)
+        if close is not None:
+            close()
 
     def on_resize(self, event) -> None:
         if self.creature is not None:

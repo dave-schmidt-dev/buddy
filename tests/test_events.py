@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from buddy.events import NullReactor, get_reactor
+from buddy.feeds import FeedReactor
 
 # Absolute path to src/ so the fresh-interpreter subprocess can import buddy
 # without requiring an editable install.
@@ -30,6 +31,45 @@ def test_get_reactor_unknown_raises() -> None:
     """get_reactor() with an unrecognised name must raise ValueError."""
     with pytest.raises(ValueError, match="bogus"):
         get_reactor("bogus")
+
+
+def test_get_reactor_feeds_returns_feed_reactor() -> None:
+    """get_reactor("feeds") must return a FeedReactor; stub getter avoids network."""
+    r = get_reactor("feeds", feeds=("hn",), getter=lambda url: [])
+    assert isinstance(r, FeedReactor)
+    # poll() may return [] initially; that is acceptable for a fresh reactor
+    result = r.poll()
+    assert isinstance(result, list)
+    r.close()
+
+
+def test_importing_events_does_not_import_feeds_or_urllib() -> None:
+    """Importing buddy.events must NOT pull buddy.feeds or urllib into sys.modules.
+
+    This enforces INV-5: the default run path is fully passive.  The check
+    runs in a fresh interpreter so this test file's own imports cannot
+    contaminate the result.
+    """
+    env = {**os.environ, "PYTHONPATH": _SRC_DIR}
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                "import buddy.events; "
+                "assert 'buddy.feeds' not in sys.modules and 'urllib.request' not in sys.modules, "
+                "'passive-import invariant violated: '"
+                " + str([k for k in sys.modules if k in ('buddy.feeds', 'urllib.request')])"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, (
+        f"Module-top passive-import check failed.\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
 
 
 def test_importing_events_does_not_import_subprocess_or_socket() -> None:

@@ -13,6 +13,7 @@ standing without needing dedicated art.
 
 from __future__ import annotations
 
+import collections
 import random
 
 from buddy import config, dialogue
@@ -66,6 +67,10 @@ class Creature:
 
         self.message: str | None = None
         self.bubble_timer = 0
+        self._ambient: collections.deque[str] = collections.deque(maxlen=8)
+        self._pending_alert: str | None = None
+        self._showing_alert = False
+        self._preempted_alert_ids: set[str] = set()
 
     # -- durations -------------------------------------------------------
 
@@ -106,23 +111,55 @@ class Creature:
 
     # -- the tick --------------------------------------------------------
 
-    def tick(self, events=()) -> None:  # noqa: ARG002 - events reserved for future reactivity
+    def tick(self, events=()) -> None:
         """Advance the model one frame.
 
-        ``events`` is accepted for the reactivity seam (INV-5) but ignored in v1.
+        ``events`` is a sequence of :class:`buddy.events.Event` objects emitted by
+        ambient feed reactors this tick. Events are routed via :meth:`_route_events`
+        before the bubble and pose updates so their effects land in the same tick.
         """
         self.anim_clock += 1
+        self._route_events(events)
         self._update_bubble()
         self._update_pose()
         self._advance_frame()
 
+    def _route_events(self, events) -> None:
+        for ev in events:
+            data = ev.data or {}
+            text = data.get("text", "")
+            if ev.kind == "nws.alert" and data.get("severity") in config.PREEMPT_SEVERITIES:
+                alert_id = data.get("id")
+                if alert_id in self._preempted_alert_ids:
+                    continue
+                self._preempted_alert_ids.add(alert_id)
+                formatted = dialogue.format_feed_line(text)
+                if self._pending_alert is None:
+                    self._pending_alert = formatted
+                    if self.state == NAP:
+                        self._enter(IDLE)  # a severe alert wakes a napping critter
+                else:
+                    self._ambient.append(formatted)  # second severe alert this tick — don't lose it
+            elif text:
+                self._ambient.append(dialogue.format_feed_line(text))
+
     def _update_bubble(self) -> None:
+        if self._pending_alert is not None:
+            self.message = self._pending_alert
+            self.bubble_timer = config.ALERT_BUBBLE_TICKS
+            self._pending_alert = None
+            self._showing_alert = True
+            return
         if self.message is not None:
             self.bubble_timer -= 1
             if self.bubble_timer <= 0:
                 self.message = None
+                self._showing_alert = False
         elif self.state != NAP and self.rng.random() < config.TALK_PROB:
-            self.message = dialogue.speak(self.rng, self.critter.name)
+            if self._ambient and self.rng.random() < config.FEED_MIX:
+                self.message = self._ambient.popleft()
+            else:
+                self.message = dialogue.speak(self.rng, self.critter.name)
             self.bubble_timer = config.BUBBLE_TICKS
 
     def _update_pose(self) -> None:
@@ -142,7 +179,7 @@ class Creature:
             self.prev_pose = self.state
             self._enter(BLINK)
             return
-        if self.rng.random() < config.NAP_PROB:
+        if not self._showing_alert and self.rng.random() < config.NAP_PROB:
             self._enter(NAP)
             return
         self.state_timer -= 1

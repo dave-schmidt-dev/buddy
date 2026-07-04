@@ -4,6 +4,58 @@ Meaningful changes, bugs, remediation, and regression notes for the `buddy` proj
 
 ---
 
+## 2026-07-04 — Ambient feeds: Hacker News, NWS weather, NWS alerts (opt-in)
+
+Three opt-in ambient feeds that surface real-world content in the critter's speech
+bubbles. The default run is unchanged — fully passive (NullReactor, zero network),
+so INV-5 holds. Feeds activate only with `--feeds`.
+
+Architecture (`src/buddy/feeds.py`, new): a `FeedReactor` spins up one background
+daemon thread that fetches on separate cadences (HN ~15 min, weather ~10 min, NWS
+alerts ~3 min) using stdlib `urllib` with a required `User-Agent` header and 5 s
+timeouts. Fetch results drain into a queue; `poll()` empties that queue without
+blocking the render loop. Every fetch degrades silently on error — the companion
+never crashes. All three sources are keyless (no API keys, no secrets).
+
+`events.get_reactor` gained a lazily-imported `"feeds"` case so the default path
+never imports the network module. `dialogue.format_feed_line` (pure function) clamps
+any feed text to the 22-char bubble with an ASCII ellipsis.
+
+Critter behavior: Severe/Extreme NWS alerts preempt the bubble, wake the critter
+from a nap, and keep it awake for the alert's duration. Headlines and current-weather
+fold into the normal talk rotation. Determinism (INV-3) is preserved — the default
+no-feeds RNG stream is byte-identical.
+
+CLI: `--feeds hn,weather,nws` (comma list); `--lat`/`--lon` for coordinates;
+`--zip` for keyless US geocode (api.zippopotam.us). `weather`/`nws` require
+coordinates; a clean CLI error is raised if missing.
+
+Code-review pass before completion fixed 5 issues:
+1. HN deleted-item refetch loop.
+2. `None` alert-id poisoning the dedup set.
+3. Lost second severe alert in a batch.
+4. 1% nap-roll erasing a just-shown alert.
+5. `close()` join timeout shorter than the HTTP timeout; plus fail-fast on missing
+   coordinates.
+
+- [change] new `FeedReactor` with HN + NWS weather + NWS alert feeds; lazy import
+  guards the default passive path | files: src/buddy/feeds.py (new), src/buddy/events.py
+- [change] `dialogue.format_feed_line` clamps feed text to 22-char bubble | files: src/buddy/dialogue.py
+- [change] critter preempts bubble and wakes from nap on Severe/Extreme NWS alerts | files: src/buddy/creature.py
+- [change] `--feeds`, `--lat`, `--lon`, `--zip` CLI flags | files: src/buddy/cli.py, src/buddy/app.py, src/buddy/config.py
+- [fix] 5 code-review issues: HN deleted-item loop, None alert-id dedup poison,
+  lost batch alert, 1% nap erase, close() join/HTTP timeout mismatch | files: src/buddy/feeds.py
+- Tests: 156 -> 208 (new tests/test_feeds.py + additions across test_dialogue.py,
+  test_creature.py, test_events.py, test_cli.py, test_default_is_passive.py); INV-5
+  gate extended with a static no-top-level-urllib/feeds import check and a
+  fresh-subprocess proof that a real default run never imports `buddy.feeds`.
+- files: src/buddy/feeds.py (new), src/buddy/events.py, src/buddy/dialogue.py,
+  src/buddy/creature.py, src/buddy/cli.py, src/buddy/app.py, src/buddy/config.py,
+  tests/test_feeds.py (new), tests/test_dialogue.py, tests/test_creature.py,
+  tests/test_events.py, tests/test_cli.py, tests/test_default_is_passive.py
+
+---
+
 ## 2026-07-03 — `./buddy` launcher script
 
 Added a one-line start script at the repo root: `./buddy [args]`. It runs the app

@@ -8,7 +8,7 @@ import pytest
 
 from buddy import critters
 from buddy.config import MAX_BUBBLE_WIDTH
-from buddy.dialogue import CATEGORIES, DIALOGUE, SPECIES, all_lines, pick, speak
+from buddy.dialogue import CATEGORIES, DIALOGUE, SPECIES, all_lines, format_feed_line, pick, speak
 
 _GENERAL = {line for c in CATEGORIES for line in DIALOGUE[c]}
 
@@ -90,3 +90,44 @@ def test_speak_unknown_critter_falls_back_to_general() -> None:
     rng = random.Random(3)
     for _ in range(50):
         assert speak(rng, "dragon") in _GENERAL
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "hi",
+        "commit early",
+        "   extra   spaces   in   here   ",
+        "Fed cuts interest rates again amid market turmoil and layoffs",
+        "     ",
+        "",
+    ],
+)
+def test_format_feed_line_never_exceeds_width(text: str) -> None:
+    """format_feed_line result must always fit within MAX_BUBBLE_WIDTH."""
+    result = format_feed_line(text)
+    assert len(result) <= MAX_BUBBLE_WIDTH, (
+        f"result {result!r} ({len(result)} chars) exceeds {MAX_BUBBLE_WIDTH}"
+    )
+
+
+def test_format_feed_line_short_passes_through_unchanged() -> None:
+    """A string already within the bubble width is returned as-is (after collapse)."""
+    short = "commit early"
+    assert len(short) <= MAX_BUBBLE_WIDTH
+    assert format_feed_line(short) == short
+
+
+def test_format_feed_line_collapses_whitespace() -> None:
+    """Internal whitespace runs are collapsed to a single space."""
+    result = format_feed_line("  too   many   spaces  ")
+    assert "  " not in result
+    assert result == "too many spaces"
+
+
+def test_format_feed_line_long_ends_with_ellipsis() -> None:
+    """A long input is truncated with '...' suffix and respects the width."""
+    long_text = "Fed cuts interest rates again amid market turmoil and layoffs"
+    result = format_feed_line(long_text)
+    assert result.endswith("...")
+    assert len(result) == MAX_BUBBLE_WIDTH

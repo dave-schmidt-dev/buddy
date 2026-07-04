@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import os
 import pathlib
+import subprocess
+import sys
 
 import pytest
 
@@ -87,3 +90,52 @@ def test_default_path_module_has_no_toplevel_subprocess_or_socket(filename):
     names = _toplevel_imports(SRC / filename)
     offenders = [n for n in names if n in ("subprocess", "socket")]
     assert not offenders, f"{filename} imports {offenders} at module top level"
+
+
+@pytest.mark.parametrize("filename", DEFAULT_PATH_MODULES)
+def test_default_path_module_has_no_toplevel_feeds_or_urllib(filename):
+    names = _toplevel_imports(SRC / filename)
+    offenders = [n for n in names if n in ("urllib", "urllib.request") or n.endswith("feeds")]
+    assert not offenders, f"{filename} imports {offenders} at module top level"
+
+
+def test_feeds_reactor_requires_explicit_flag():
+    from buddy.events import get_reactor
+    from buddy.feeds import FeedReactor
+
+    assert isinstance(get_reactor(), NullReactor)
+    r = get_reactor("feeds", feeds=("hn",), getter=lambda url: [])  # stub getter → no network
+    assert isinstance(r, FeedReactor)
+    r.close()
+
+
+def test_default_run_does_not_import_feeds():
+    """A fresh default app run must not import buddy.feeds.
+
+    Runs in a subprocess so this test's own imports of buddy.feeds cannot
+    contaminate sys.modules.
+    """
+    code = (
+        "import sys, asyncio\n"
+        "from buddy.app import BuddyApp\n"
+        "from buddy.config import BuddyConfig\n"
+        "\n"
+        "async def run():\n"
+        "    app = BuddyApp(BuddyConfig(seed=1, animal='cat'))\n"
+        "    async with app.run_test(size=(48, 14)) as pilot:\n"
+        "        for _ in range(20):\n"
+        "            await pilot.pause()\n"
+        "\n"
+        "asyncio.run(run())\n"
+        "assert 'buddy.feeds' not in sys.modules, sorted(m for m in sys.modules if 'feeds' in m)\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(SRC.parent)},
+    )
+    assert result.returncode == 0, (
+        f"INV-5: default run imported buddy.feeds.\n"
+        f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    )

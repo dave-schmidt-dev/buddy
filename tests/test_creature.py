@@ -10,6 +10,8 @@ import random
 from buddy import config, critters, dialogue
 from buddy.creature import Creature
 from buddy.critters import IDLE, NAP, WALK
+from buddy.dialogue import format_feed_line
+from buddy.events import Event
 
 
 def _make(seed=42, cols=40, rows=12, animal="cat"):
@@ -214,3 +216,114 @@ def test_napping_critter_breathes():
     # and return to 0 outside the held tail
     c.anim_clock = 0
     assert c._breath() == 0, "breath must be 0 at clock 0 even while napping"
+
+
+# ---------------------------------------------------------------------------
+# Ambient feed / event routing tests
+# ---------------------------------------------------------------------------
+
+
+def test_severe_alert_preempts_active_bubble():
+    """A Severe alert replaces an in-progress bubble with the alert text."""
+    c = _make()
+    c.message = "old"
+    c.bubble_timer = 5
+    c.tick([Event("nws.alert", {"text": "Tornado Warning", "severity": "Severe", "id": "a1"})])
+    assert c.message == format_feed_line("Tornado Warning")
+    assert c.bubble_timer == config.ALERT_BUBBLE_TICKS
+
+
+def test_severe_alert_wakes_napping_critter():
+    """A Severe alert forces a napping critter into IDLE and shows the message."""
+    c = _make()
+    c.state = NAP
+    c.tick([Event("nws.alert", {"text": "Tornado Warning", "severity": "Severe", "id": "w1"})])
+    assert c.state != NAP
+    assert c.message == format_feed_line("Tornado Warning")
+
+
+def test_minor_alert_does_not_preempt():
+    """A Minor alert is queued in _ambient, not in _pending_alert."""
+    c = _make()
+    c.tick([Event("nws.alert", {"text": "Frost Advisory", "severity": "Minor", "id": "m1"})])
+    assert c._pending_alert is None
+    assert format_feed_line("Frost Advisory") in list(c._ambient)
+
+
+def test_repeated_severe_alert_preempts_once():
+    """The same severe alert id must not preempt a second time (id remembered)."""
+    c = _make()
+    c.tick([Event("nws.alert", {"text": "Tornado Warning", "severity": "Severe", "id": "dup1"})])
+    first_message = c.message
+    assert first_message == format_feed_line("Tornado Warning")
+    # Clear the bubble so we can detect a second preemption
+    c.message = None
+    c.bubble_timer = 0
+    c.tick([Event("nws.alert", {"text": "Tornado Warning", "severity": "Severe", "id": "dup1"})])
+    # Second tick with same id must NOT re-preempt
+    assert c.message is None or c.message != format_feed_line("Tornado Warning")
+    assert "dup1" in c._preempted_alert_ids
+
+
+def test_ambient_headline_surfaces_in_rotation(monkeypatch):
+    """With TALK_PROB=1.0 and FEED_MIX=1.0, an ambient headline is shown next tick."""
+    monkeypatch.setattr(config, "TALK_PROB", 1.0)
+    monkeypatch.setattr(config, "FEED_MIX", 1.0)
+    c = _make()
+    c.state = IDLE
+    c.message = None
+    headline = format_feed_line("Breaking: tests are passing")
+    c._ambient.append(headline)
+    c.tick([])
+    assert c.message == headline
+
+
+def test_second_severe_alert_same_tick_goes_to_ambient():
+    """Fix A: a second distinct severe alert in the same tick must not be lost."""
+    c = _make()
+    c.tick(
+        [
+            Event("nws.alert", {"text": "Tornado Warning", "severity": "Severe", "id": "a1"}),
+            Event("nws.alert", {"text": "Flash Flood Warning", "severity": "Severe", "id": "a2"}),
+        ]
+    )
+    assert c.message == format_feed_line("Tornado Warning"), "first alert must preempt"
+    assert format_feed_line("Flash Flood Warning") in list(c._ambient), (
+        "second alert must be queued in _ambient, not dropped"
+    )
+
+
+def test_showing_alert_survives_forced_nap(monkeypatch):
+    """Fix B: _showing_alert blocks the NAP transition so the alert bubble is not cleared."""
+    c = _make()
+    c.tick([Event("nws.alert", {"text": "Tornado Warning", "severity": "Severe", "id": "sn1"})])
+    assert c.message is not None
+    assert c._showing_alert is True
+    alert_text = c.message
+    monkeypatch.setattr(config, "NAP_PROB", 1.0)
+    monkeypatch.setattr(config, "BLINK_PROB", 0.0)
+    c.tick([])
+    assert c.state != NAP, "critter must not nap while an alert is showing"
+    assert c.message == alert_text, "alert bubble must survive when nap is blocked"
+
+
+def test_scripted_event_stream_is_deterministic():
+    """INV-3: two creatures with the same seed produce identical output under identical events."""
+    a = _make(seed=77)
+    b = _make(seed=77)
+    # Build a deterministic per-tick event schedule (40 ticks)
+    per_tick_events = [[] for _ in range(40)]
+    per_tick_events[5] = [Event("feed.headline", {"text": "Story one", "id": 1})]
+    per_tick_events[10] = [Event("weather.now", {"text": "Sunny skies"})]
+    per_tick_events[15] = [
+        Event("nws.alert", {"text": "Flash Flood Warning", "severity": "Severe", "id": "ff1"})
+    ]
+    per_tick_events[25] = [Event("feed.headline", {"text": "Story two", "id": 2})]
+    messages_a = []
+    messages_b = []
+    for evs in per_tick_events:
+        a.tick(evs)
+        b.tick(evs)
+        messages_a.append(a.message)
+        messages_b.append(b.message)
+    assert messages_a == messages_b, "event-driven runs must be byte-identical under same seed"

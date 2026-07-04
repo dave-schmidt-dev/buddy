@@ -11,8 +11,46 @@ from __future__ import annotations
 import argparse
 
 from buddy import critters
-from buddy.config import SPEED_MAX, SPEED_MIN, BuddyConfig
+from buddy.config import FEED_HTTP_TIMEOUT_S, FEED_USER_AGENT, SPEED_MAX, SPEED_MIN, BuddyConfig
 from buddy.logging_config import setup_logging
+
+
+def _resolve_zip(zip_code: str) -> tuple[float, float]:
+    """Resolve a US ZIP code to (latitude, longitude) via api.zippopotam.us (keyless).
+
+    Network import is lazy so cli.py stays import-passive on the default path (INV-5).
+    """
+    import json
+    import urllib.request
+
+    url = f"https://api.zippopotam.us/us/{zip_code}"
+    req = urllib.request.Request(url, headers={"User-Agent": FEED_USER_AGENT})
+    with urllib.request.urlopen(req, timeout=FEED_HTTP_TIMEOUT_S) as resp:
+        data = json.load(resp)
+    place = data["places"][0]
+    return float(place["latitude"]), float(place["longitude"])
+
+
+def feed_list(s: str) -> tuple[str, ...]:
+    """Parse and validate the comma-separated --feeds argument.
+
+    Args:
+        s: Raw string value from the command line.
+
+    Returns:
+        Tuple of validated feed names.
+
+    Raises:
+        argparse.ArgumentTypeError: If any token is not a known feed name.
+    """
+    valid = {"hn", "weather", "nws"}
+    feeds = tuple(f.strip() for f in s.split(",") if f.strip())
+    bad = [f for f in feeds if f not in valid]
+    if bad:
+        raise argparse.ArgumentTypeError(
+            f"--feeds: unknown feed(s) {bad}; choose from {sorted(valid)}"
+        )
+    return feeds
 
 
 def positive_speed(s: str) -> float:
@@ -80,6 +118,40 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable DEBUG-level logging to log file.",
     )
+    parser.add_argument(
+        "--feeds",
+        type=feed_list,
+        default=(),
+        metavar="LIST",
+        help=(
+            "Comma-separated opt-in feeds from: hn,weather,nws (default: none = passive)."
+            " Performs network I/O."
+        ),
+    )
+    parser.add_argument(
+        "--lat",
+        type=float,
+        default=None,
+        metavar="DEG",
+        help="Latitude for weather/nws feeds.",
+    )
+    parser.add_argument(
+        "--lon",
+        type=float,
+        default=None,
+        metavar="DEG",
+        help="Longitude for weather/nws feeds.",
+    )
+    parser.add_argument(
+        "--zip",
+        type=str,
+        default=None,
+        metavar="ZIP",
+        help=(
+            "US ZIP code to derive --lat/--lon for weather/nws feeds"
+            " (keyless geocode; opt-in network)."
+        ),
+    )
     return parser
 
 
@@ -101,11 +173,23 @@ def main(argv: list[str] | None = None) -> int:
         print("Critters: " + ", ".join(critters.names()) + ", random")
         return 0
 
+    if args.zip and (args.lat is None or args.lon is None):
+        try:
+            args.lat, args.lon = _resolve_zip(args.zip)
+        except Exception as exc:  # noqa: BLE001 - any failure becomes a clean CLI error
+            parser.error(f"--zip: could not resolve {args.zip!r}: {exc}")
+
+    if ("weather" in args.feeds or "nws" in args.feeds) and (args.lat is None or args.lon is None):
+        parser.error("--feeds weather/nws require --lat and --lon")
+
     cfg = BuddyConfig(
         animal=args.animal,
         speed=args.speed,
         seed=args.seed,
         debug=args.debug,
+        feeds=args.feeds,
+        latitude=args.lat,
+        longitude=args.lon,
     )
 
     # Import the Textual app lazily so --list / --help stay framework-free and fast.
