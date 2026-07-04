@@ -164,19 +164,9 @@ def test_walk_cycle_animates_feet():
             assert len({f.art[r] for f in frames}) == 1, f"{name}: body row {r} jitters"
 
 
-def test_roster_has_expected_nine_critters():
-    """The design pass locked a nine-critter roster (adds hedgehog + armadillo)."""
-    assert set(critters.names()) == {
-        "armadillo",
-        "capybara",
-        "cat",
-        "dog",
-        "duck",
-        "hedgehog",
-        "possum",
-        "rabbit",
-        "sloth",
-    }
+def test_roster_has_expected_critters():
+    """The roster is trimmed to four art-quality critters: cat, duck, possum, rabbit."""
+    assert set(critters.names()) == {"cat", "duck", "possum", "rabbit"}
 
 
 def test_walk_left_is_same_object_as_walk():

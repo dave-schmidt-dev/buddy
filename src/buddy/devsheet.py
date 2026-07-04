@@ -39,7 +39,7 @@ def build_sheet() -> Text:
                 out.append(_frame_block(c, frame, 12))
                 out.append("\n")
             # Show the left-facing walk right after the right-facing one so both
-            # directions can be eyeballed (hand-authored for cat/capybara, else mirrored).
+            # directions can be eyeballed (walk_left is derived from the idle feet shuffle).
             if state == WALK:
                 for i, frame in enumerate(c.walk_left):
                     out.append(f"  walkL#{i}".ljust(12), style="dim")

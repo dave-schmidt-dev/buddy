@@ -155,7 +155,7 @@ def test_unseeded_creature_runs_without_error():
 
 def test_tiny_stage_keeps_creature_pinned_in_bounds():
     """Stage narrower than the sprite: max_x clamps to 0, no negative positions."""
-    c = _make(cols=3, rows=3, animal="capybara")
+    c = _make(cols=3, rows=3, animal="possum")
     assert c.max_x == 0
     for _ in range(200):
         c.tick()

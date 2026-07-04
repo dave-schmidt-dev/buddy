@@ -30,8 +30,8 @@ def test_snapshot_cat_idle(snap_compare):
     assert snap_compare(app, terminal_size=(40, 12), run_before=_pin("idle", 8))
 
 
-def test_snapshot_capybara_talking(snap_compare):
-    app = BuddyApp(BuddyConfig(animal="capybara", animate=False, seed=1))
+def test_snapshot_duck_talking(snap_compare):
+    app = BuddyApp(BuddyConfig(animal="duck", animate=False, seed=1))
     assert snap_compare(
         app, terminal_size=(44, 12), run_before=_pin("idle", 10, message="commit early")
     )

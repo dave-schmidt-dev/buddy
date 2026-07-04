@@ -46,7 +46,7 @@ class TestAnimalValidation:
             build_parser().parse_args(["--animal", "dragon"])
 
     def test_known_animal_accepted(self):
-        assert build_parser().parse_args(["--animal", "capybara"]).animal == "capybara"
+        assert build_parser().parse_args(["--animal", "possum"]).animal == "possum"
 
     def test_random_accepted(self):
         assert build_parser().parse_args(["--animal", "random"]).animal == "random"

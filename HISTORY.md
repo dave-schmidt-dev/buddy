@@ -4,6 +4,25 @@ Meaningful changes, bugs, remediation, and regression notes for the `buddy` proj
 
 ---
 
+## 2026-07-04 — Roster trimmed to four critters
+
+The critter roster is now cat, duck, possum, rabbit (dropped capybara, dog, sloth,
+hedgehog, armadillo for art quality). `names()`, CLI `--animal` choices, and the
+devsheet contact sheet all auto-follow the roster — no hardcoded lists to update.
+Snapshot baseline regenerated for duck (replaces capybara); cat snapshot unchanged.
+
+- [change] remove capybara, dog, sloth, hedgehog, armadillo roster entries | files: src/buddy/critters.py
+- [change] remove corresponding SPECIES entries | files: src/buddy/dialogue.py
+- [change] update critter count and list | files: README.md
+- [change] roster gate test updated to four survivors | files: tests/test_critters.py
+- [change] capybara → possum in tiny-stage test | files: tests/test_creature.py
+- [change] capybara → possum in CLI animal test | files: tests/test_cli.py
+- [change] dog → possum in dialogue mix test | files: tests/test_dialogue.py
+- [change] rename test_snapshot_capybara_talking → test_snapshot_duck_talking; regenerate baseline | files: tests/test_app_snapshot.py, tests/__snapshots__/test_app_snapshot/
+- files: src/buddy/critters.py, src/buddy/dialogue.py, README.md, tests/test_critters.py, tests/test_creature.py, tests/test_cli.py, tests/test_dialogue.py, tests/test_app_snapshot.py
+
+---
+
 ## 2026-07-04 — Alert bubbles are visually distinct from ordinary speech
 
 NWS alerts previously rendered identically to headlines/quips (same `( ... )` frame,

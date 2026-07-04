@@ -2,7 +2,7 @@
 
 An ambient ASCII-art coding companion — a colored line-art critter that struts around a side terminal pane while you work in Claude Code or Codex.
 
-**Status:** v1 + ambient feeds — 9 critters, 217 tests green.
+**Status:** v1 + ambient feeds — 4 critters, 190 tests green.
 
 ## Priorities (in order)
 
@@ -38,7 +38,7 @@ keeps working even when macOS re-hides `.venv` (see the dev note below):
 
 ```bash
 ./buddy                      # random critter
-./buddy --animal capybara    # pick one
+./buddy --animal duck        # pick one
 ./buddy --list               # list critters
 ./buddy --speed 1.5          # faster strut (0 < speed <= 10)
 ./buddy --seed 42            # reproducible run
@@ -57,7 +57,7 @@ prefer the launcher.)
 
 Keys while running: `q` quit · `space` next critter · `t` talk.
 
-Critters: cat, duck, capybara, rabbit, dog, possum, sloth, hedgehog, armadillo.
+Critters: cat, duck, possum, rabbit.
 Each has a muted body color plus per-part accents (eyes, nose, beak, tongue, tail,
 feet) driven by a color mask. A critter idles, blinks, and naps face-on; the walk
 keeps the face forward with feet shuffling side-to-side and body bobbing — popping

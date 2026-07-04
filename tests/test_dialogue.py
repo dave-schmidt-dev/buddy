@@ -72,8 +72,8 @@ def test_speak_only_returns_known_lines() -> None:
 def test_speak_mixes_species_and_general() -> None:
     """Over many draws a critter says both its own lines and general ones."""
     rng = random.Random(2)
-    said = [speak(rng, "dog") for _ in range(400)]
-    assert any(s in set(SPECIES["dog"]) for s in said), "should say species lines"
+    said = [speak(rng, "possum") for _ in range(400)]
+    assert any(s in set(SPECIES["possum"]) for s in said), "should say species lines"
     assert any(s in _GENERAL for s in said), "should also say general lines"
 
 
