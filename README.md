@@ -86,6 +86,8 @@ The three feeds:
   precip heads-up (~10 min).
 - `nws` — NWS active weather alerts: warnings, watches, advisories (~3 min).
   Severe/Extreme alerts preempt the bubble, wake the critter from a nap, and hold.
+  They also render distinctly — a `(! ... !)` frame colored red (Extreme) or amber
+  (Severe) — so a warning never looks like an ordinary headline or quip.
 
 Headlines and weather fold into the normal talk rotation.
 

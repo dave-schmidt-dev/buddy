@@ -69,7 +69,8 @@ class Creature:
         self.bubble_timer = 0
         self._ambient: collections.deque[str] = collections.deque(maxlen=8)
         self._pending_alert: str | None = None
-        self._showing_alert = False
+        self._pending_alert_level: str | None = None
+        self._alert_level: str | None = None
         self._preempted_alert_ids: set[str] = set()
 
     # -- durations -------------------------------------------------------
@@ -133,9 +134,11 @@ class Creature:
                 if alert_id in self._preempted_alert_ids:
                     continue
                 self._preempted_alert_ids.add(alert_id)
+                severity = data.get("severity")
                 formatted = dialogue.format_feed_line(text)
                 if self._pending_alert is None:
                     self._pending_alert = formatted
+                    self._pending_alert_level = severity
                     if self.state == NAP:
                         self._enter(IDLE)  # a severe alert wakes a napping critter
                 else:
@@ -147,14 +150,15 @@ class Creature:
         if self._pending_alert is not None:
             self.message = self._pending_alert
             self.bubble_timer = config.ALERT_BUBBLE_TICKS
+            self._alert_level = self._pending_alert_level
             self._pending_alert = None
-            self._showing_alert = True
+            self._pending_alert_level = None
             return
         if self.message is not None:
             self.bubble_timer -= 1
             if self.bubble_timer <= 0:
                 self.message = None
-                self._showing_alert = False
+                self._alert_level = None
         elif self.state != NAP and self.rng.random() < config.TALK_PROB:
             if self._ambient and self.rng.random() < config.FEED_MIX:
                 self.message = self._ambient.popleft()
@@ -179,7 +183,7 @@ class Creature:
             self.prev_pose = self.state
             self._enter(BLINK)
             return
-        if not self._showing_alert and self.rng.random() < config.NAP_PROB:
+        if self._alert_level is None and self.rng.random() < config.NAP_PROB:
             self._enter(NAP)
             return
         self.state_timer -= 1
@@ -246,3 +250,9 @@ class Creature:
     def snapshot(self) -> tuple:
         """A hashable summary of the visible state, for determinism tests."""
         return (self.state, self.x, self.sprite_y(), self.frame_index, self.message)
+
+    @property
+    def alert_level(self) -> str | None:
+        """Severity ("Extreme"/"Severe") of the currently shown alert bubble, else None.
+        The view uses this to color alert bubbles distinctly from ordinary speech."""
+        return self._alert_level

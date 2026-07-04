@@ -28,6 +28,7 @@ K_EMPTY = " "
 K_SPRITE = "S"
 K_GROUND = "G"
 K_BUBBLE = "B"
+K_ALERT = "A"
 
 GROUND_CHAR = "~"
 
@@ -76,7 +77,9 @@ def _blit_notice(grid, kinds, cols, rows) -> None:
 
 
 def _blit_bubble(grid, kinds, creature: Creature, cols, rows) -> None:
-    bubble = f"( {creature.message} )"
+    is_alert = creature.alert_level is not None
+    kind = K_ALERT if is_alert else K_BUBBLE
+    bubble = f"(! {creature.message} !)" if is_alert else f"( {creature.message} )"
     w = len(bubble)
     center = creature.x + creature.critter.width // 2
     bx = center - w // 2
@@ -85,8 +88,8 @@ def _blit_bubble(grid, kinds, creature: Creature, cols, rows) -> None:
     bx = max(0, min(bx, cols - w))
     by = max(0, creature.sprite_y() - 2)
     for i, ch in enumerate(bubble):
-        _put(grid, kinds, bx + i, by, ch, K_BUBBLE, cols, rows, skip_space=False)
-    _put(grid, kinds, center, by + 1, "\\", K_BUBBLE, cols, rows, skip_space=False)
+        _put(grid, kinds, bx + i, by, ch, kind, cols, rows, skip_space=False)
+    _put(grid, kinds, center, by + 1, "\\", kind, cols, rows, skip_space=False)
 
 
 def compose_frame(creature: Creature, cols: int, rows: int) -> Rendered:

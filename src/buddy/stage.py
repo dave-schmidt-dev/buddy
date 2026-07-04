@@ -13,11 +13,13 @@ from rich.text import Text
 from textual.widget import Widget
 
 from buddy import render
-from buddy.render import K_BUBBLE, K_EMPTY, K_GROUND
+from buddy.render import K_ALERT, K_BUBBLE, K_EMPTY, K_GROUND
 
 # Non-sprite kind colors. Sprite cells resolve against the critter's palette.
 GROUND_STYLE = "#4b5d3a"  # dim mossy green
 BUBBLE_STYLE = "#88c0d0"  # soft cyan
+ALERT_EXTREME_STYLE = "#bf616a"  # red for Extreme severity
+ALERT_SEVERE_STYLE = "#d08770"  # amber for Severe severity
 
 
 class StageWidget(Widget):
@@ -44,6 +46,13 @@ class StageWidget(Widget):
                     text.append(ch, style=GROUND_STYLE)
                 elif kind == K_BUBBLE:
                     text.append(ch, style=BUBBLE_STYLE)
+                elif kind == K_ALERT:
+                    text.append(
+                        ch,
+                        style=ALERT_EXTREME_STYLE
+                        if creature.alert_level == "Extreme"
+                        else ALERT_SEVERE_STYLE,
+                    )
                 else:
                     # Sprite cell: an accent mask key (parts) or K_SPRITE -> body.
                     text.append(ch, style=parts.get(kind, body))

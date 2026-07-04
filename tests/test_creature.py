@@ -293,18 +293,34 @@ def test_second_severe_alert_same_tick_goes_to_ambient():
     )
 
 
-def test_showing_alert_survives_forced_nap(monkeypatch):
-    """Fix B: _showing_alert blocks the NAP transition so the alert bubble is not cleared."""
+def test_alert_bubble_survives_forced_nap(monkeypatch):
+    """Fix B: _alert_level blocks the NAP transition so the alert bubble is not cleared."""
     c = _make()
     c.tick([Event("nws.alert", {"text": "Tornado Warning", "severity": "Severe", "id": "sn1"})])
     assert c.message is not None
-    assert c._showing_alert is True
+    assert c.alert_level == "Severe"
     alert_text = c.message
     monkeypatch.setattr(config, "NAP_PROB", 1.0)
     monkeypatch.setattr(config, "BLINK_PROB", 0.0)
     c.tick([])
     assert c.state != NAP, "critter must not nap while an alert is showing"
     assert c.message == alert_text, "alert bubble must survive when nap is blocked"
+
+
+def test_alert_level_tracks_severity():
+    """alert_level reflects the severity of the active alert, then clears on expiry."""
+    c = _make()
+    assert c.alert_level is None
+    # Extreme alert shows — alert_level must be "Extreme"
+    c.tick([Event("nws.alert", {"text": "Major Hurricane", "severity": "Extreme", "id": "ext1"})])
+    assert c.alert_level == "Extreme"
+    # Expire the bubble by running _update_bubble with timer at 1
+    c.bubble_timer = 1
+    c._update_bubble()
+    assert c.alert_level is None, "alert_level must clear when the bubble expires"
+    # Severe alert shows — alert_level must be "Severe"
+    c.tick([Event("nws.alert", {"text": "Tornado Warning", "severity": "Severe", "id": "sev1"})])
+    assert c.alert_level == "Severe"
 
 
 def test_scripted_event_stream_is_deterministic():

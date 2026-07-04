@@ -4,6 +4,32 @@ Meaningful changes, bugs, remediation, and regression notes for the `buddy` proj
 
 ---
 
+## 2026-07-04 — Alert bubbles are visually distinct from ordinary speech
+
+NWS alerts previously rendered identically to headlines/quips (same `( ... )` frame,
+same soft-cyan) — a warning was indistinguishable from "boop." Now alert bubbles are
+tagged and styled apart: `creature` exposes an `alert_level` property ("Extreme"/
+"Severe", else None; it replaces the old `_showing_alert` bool), `render.py` tags
+alert-bubble cells with a new `K_ALERT` kind and a `(! ... !)` frame, and `stage.py`
+(the color owner) maps `K_ALERT` to red for Extreme and amber for Severe. Normal
+bubbles keep `( ... )` / `K_BUBBLE` / soft-cyan. Marker + color means a warning reads
+as a warning even in a monochrome terminal.
+
+INV-2 clipping is unchanged (only the kind code and frame string differ); INV-4 holds
+(color stays in stage.py, render.py stays framework-free); INV-3 holds (the nap-guard
+now checks `_alert_level is None`, which is always true on the default no-feeds path,
+so the RNG stream is byte-identical).
+
+- [change] `alert_level` property + severity tracking replaces `_showing_alert` bool | files: src/buddy/creature.py
+- [change] `K_ALERT` kind + `(! ... !)` alert frame | files: src/buddy/render.py
+- [change] red (Extreme) / amber (Severe) alert bubble colors | files: src/buddy/stage.py
+- Tests: 217 -> 220 (alert kind/marker in the render tests, severity tracking in the
+  creature tests; existing INV-2/3/4 gates and both snapshots stay green).
+- files: src/buddy/creature.py, src/buddy/render.py, src/buddy/stage.py,
+  tests/test_creature.py, tests/test_stage.py
+
+---
+
 ## 2026-07-04 — Feeds follow-up: richer weather, .env location, feeds on by default
 
 Follow-up on the ambient-feeds feature (below), keeping INV-5 intact.

@@ -13,7 +13,8 @@ import pytest
 
 from buddy import config, critters
 from buddy.creature import Creature
-from buddy.render import K_BUBBLE, K_GROUND, K_SPRITE, compose_frame
+from buddy.events import Event
+from buddy.render import K_ALERT, K_BUBBLE, K_GROUND, K_SPRITE, compose_frame
 
 
 def _creature(cols=40, rows=12, animal="cat"):
@@ -96,6 +97,28 @@ def test_minimum_supported_size_renders_normally():
         config.MIN_STAGE_ROWS,
     )
     assert K_GROUND in "".join(r.kinds)
+
+
+def test_alert_bubble_tagged_and_marked():
+    """Alert bubbles are tagged K_ALERT and contain '!' markers; K_BUBBLE must be absent."""
+    c = _creature(40, 12)
+    c.tick([Event("nws.alert", {"text": "Tornado Warning", "severity": "Extreme", "id": "a1"})])
+    r = compose_frame(c, 40, 12)
+    all_kinds = "".join(r.kinds)
+    all_rows = "".join(r.rows)
+    assert K_ALERT in all_kinds, "alert bubble cells must be tagged K_ALERT"
+    assert "!" in all_rows, "alert bubble must contain '!' marker"
+    assert K_BUBBLE not in all_kinds, "alert bubble must not be tagged K_BUBBLE"
+
+
+def test_normal_bubble_tagged_bubble_kind():
+    """A normal (non-alert) bubble is tagged K_BUBBLE, not K_ALERT."""
+    c = _creature(40, 12)
+    c.force_talk()
+    r = compose_frame(c, 40, 12)
+    all_kinds = "".join(r.kinds)
+    assert K_BUBBLE in all_kinds, "normal bubble cells must be tagged K_BUBBLE"
+    assert K_ALERT not in all_kinds, "normal bubble must not be tagged K_ALERT"
 
 
 def test_render_module_imports_no_textual():
