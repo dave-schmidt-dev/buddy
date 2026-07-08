@@ -34,3 +34,7 @@ build/
 # Test artifacts
 snapshot_report.html
 tests/__snapshots__/*.svg.new
+HISTORY.md
+TASKS.md
+history.md
+tasks.md
